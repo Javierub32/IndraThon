@@ -14,7 +14,20 @@ const steps = [['swir', '01', 'Composición SWIR', 'Imagen de entrada utilizada 
 const activeFireSteps = [['fire_score', '08', 'Contraste de la imagen', 'Brillo y contraste del render. La equivalencia con bandas espectrales depende de la composición; no indica temperatura.'], ['fire_raw_seeds', '09', 'Primeras señales', 'Primer filtro de brillo y relación entre canales.'], ['fire_context', '10', 'Comparación del entorno', 'Compara las señales con el brillo de las zonas vecinas.'], ['fire_seeds', '11', 'Señales consistentes', 'Zonas candidatas con apoyo del entorno.'], ['fire_candidates', '12', 'Áreas candidatas', 'Píxeles compatibles con las señales detectadas.'], ['fire_grown', '13', 'Áreas agrupadas', 'Agrupación limitada de zonas próximas.'], ['fire_mask', '14', 'Posibles focos', 'Zonas con señales compatibles con actividad de fuego.']];
 async function request(url, options) {
   const response = await fetch(url, options);
-  const data = await response.json();
+  const body = await response.text();
+  let data;
+
+  try {
+    data = body ? JSON.parse(body) : {};
+  } catch {
+    const isHtml = response.headers.get('content-type')?.includes('text/html') || /^\s*</.test(body);
+    if (isHtml) {
+      throw new Error(`El servidor devolvió una página HTML en vez de JSON (HTTP ${response.status}). Comprueba que el backend esté activo y que la ruta /api esté configurada en Render.`);
+    }
+    const detail = body.trim().slice(0, 240);
+    throw new Error(detail ? `${detail} (HTTP ${response.status}).` : `El servidor devolvió una respuesta no válida (HTTP ${response.status}).`);
+  }
+
   if (!response.ok) {
     const detail = typeof data.detail === 'string' ? data.detail : 'Revisa las imágenes y los parámetros del análisis.';
     throw new Error(detail);
