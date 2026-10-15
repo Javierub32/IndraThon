@@ -1,2 +1,6 @@
 ./.venv
 /tmp
+/backend/results/
+**/__pycache__/
+**/.ipynb_checkpoints/
+/frontend/dist/

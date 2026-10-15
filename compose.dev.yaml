@@ -12,9 +12,11 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./backend/main.py:/app/main.py
+      - ./backend:/app
 
   frontend:
+    environment:
+      VITE_API_TARGET: http://backend:8000
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev

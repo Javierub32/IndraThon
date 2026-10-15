@@ -1,0 +1,5 @@
+-r requirements.txt
+httpx
+nbformat
+nbclient
+ipykernel
