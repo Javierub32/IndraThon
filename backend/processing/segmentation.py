@@ -15,8 +15,11 @@ class SegmentationConfig:
     max_hole_fraction: float = 0.00015
     simplify_pixels: float = 1.5
     refine: bool = True
+    pixel_size_m: float = 20.0
 
     def __post_init__(self):
+        if not np.isfinite(self.pixel_size_m) or not 0 < self.pixel_size_m <= 10000:
+            raise ValueError("La resolución debe ser positiva y no superar 10000 m por píxel original.")
         if not 256 <= self.max_side <= 3072:
             raise ValueError("La resolución de análisis debe estar entre 256 y 3072.")
         if not 0 <= self.sensitivity <= 1:
@@ -49,8 +52,9 @@ def reconstruct(seeds, candidates, min_area=1):
 def segment(features, config):
     high, low = thresholds(config)
     score = features["score"]
-    seeds = (score >= high) & features["valid"]
-    candidates = (score >= low) & features["valid"]
+    observable = features["valid"] & ~features["uncertain"]
+    seeds = (score >= high) & observable & features.get("seed_allowed", True)
+    candidates = (score >= low) & observable
     grown = reconstruct(seeds, candidates)
     return {"seeds": seeds, "candidates": candidates, "grown": grown,
             "seed_threshold": high, "candidate_threshold": low}

@@ -1,0 +1,9 @@
+{
+  "description": "Escenas de desarrollo. Añadir incidentes nuevos con split=holdout y referencias independientes para medir generalización.",
+  "config": {"max_side": 1536, "sensitivity": 0.5, "refine": true, "pixel_size_m": 20},
+  "scenes": [
+    {"id": "niebla", "split": "development", "true_color": "../images/Niebla/image_True_color.jpg", "swir": "../images/Niebla/image_SWIR.jpg"},
+    {"id": "la-mierla", "split": "development", "true_color": "../images/La_Mierla/image_True_color.jpg", "swir": "../images/La_Mierla/image_SWIR.jpg"},
+    {"id": "madrid-avila", "split": "development", "true_color": "../images/Madrid-Avila/image_True_color.jpg", "swir": "../images/Madrid-Avila/image_SWIR.jpg"}
+  ]
+}

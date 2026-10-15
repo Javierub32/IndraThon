@@ -128,6 +128,42 @@ class ApiTests(unittest.TestCase):
                  'image2': ('b.png', content((128,128)), 'image/png')}
         self.assertEqual(self.client.post('/api/process', files=files).status_code, 422)
 
+    def test_advanced_upload_exports_quality_metric_units_and_active_labels(self):
+        swir = np.full((128, 128, 3), [50, 180, 40], np.uint8)
+        swir[30:90, 30:90] = [150, 65, 55]
+        swir[60:63, 60:63] = [240, 100, 20]
+        visible = np.full_like(swir, [80, 110, 60])
+        def png(array):
+            buffer = io.BytesIO()
+            Image.fromarray(array).save(buffer, format='PNG')
+            return buffer.getvalue()
+        files = {'image1': ('true.png', png(visible)), 'image2': ('swir.png', png(swir))}
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
+            with patch.object(self.main, 'RESULTS', Path(directory)):
+                response = self.client.post('/api/process', files=files, data={'max_side':256, 'refine':'false', 'active_fire':'true', 'pixel_size_m':20})
+                self.assertEqual(response.status_code, 200, response.text)
+                result = response.json()
+                self.assertEqual(result['active_fire']['stats']['hotspot_count'], 1)
+                self.assertEqual(result['spatial_resolution']['original_pixel_m'], 20)
+                self.assertGreater(result['stats']['affected_area_hectares_estimated'], 0)
+                self.assertIn('checks', self.client.get(result['assets']['quality']).json())
+                for url in result['assets'].values():
+                    self.assertEqual(self.client.get(url).status_code, 200)
+                labels = np.asarray(Image.open(io.BytesIO(self.client.get(result['assets']['active_labels']).content)))
+                self.assertEqual(set(np.unique(labels)), {0, 1, 2})
+                self.assertEqual(self.client.get(result['assets']['regions']).json()['spatial_resolution']['original_pixel_m'], 20)
+
+    def test_busy_request_is_rejected_before_image_decoding_and_bad_scale_rejected(self):
+        self.main.REQUEST_LOCK.acquire()
+        try:
+            with patch.object(self.main, 'read_rgb') as decode:
+                self.assertEqual(self.client.post('/api/scenes/niebla/analyze', json={}).status_code, 409)
+                decode.assert_not_called()
+        finally:
+            self.main.REQUEST_LOCK.release()
+        for scale in [0, -20, 10001]:
+            self.assertEqual(self.client.post('/api/scenes/niebla/analyze', json={'pixel_size_m':scale}).status_code, 422)
+
     def test_busy_analysis_is_explicit_and_result_deletion_is_bounded(self):
         from fastapi import HTTPException
         self.main.PROCESS_LOCK.acquire()

@@ -41,7 +41,8 @@ def extract_regions(mask, original_size, simplify_pixels=1.5):
     perimeter_total = 0.0
 
     def ring(contour):
-        points = cv2.approxPolyDP(contour, simplify_pixels, True).reshape(-1, 2).astype(float)
+        simplified = cv2.approxPolyDP(contour, simplify_pixels, True)
+        points = (simplified if len(simplified) >= 3 else contour).reshape(-1, 2).astype(float)
         # Centred pixel coordinates; clamp to the image extent.
         points[:, 0] = np.clip((points[:, 0] + 0.5) * sx - 0.5, 0, original_width - 1)
         points[:, 1] = np.clip((points[:, 1] + 0.5) * sy - 0.5, 0, original_height - 1)
