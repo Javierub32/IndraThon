@@ -66,7 +66,8 @@ function FireMarkers({
 function ResultViewer({
   result
 }) {
-  const [base, setBase] = useState('true-color');
+  const hasTrueColor = result.input_mode !== 'swir_only';
+  const [base, setBase] = useState(hasTrueColor ? 'true-color' : 'swir');
   const [segmentation, setSegmentation] = useState(true);
   const [showFire, setShowFire] = useState(Boolean(result.active_fire?.enabled));
   const [perimeter, setPerimeter] = useState(true);
@@ -107,16 +108,16 @@ function ResultViewer({
 <p>estimado · {number(result.config.pixel_size_m)} m/píxel original</p>
 </div>
       <div>
-<span>Zona incierta</span>
+<span>{hasTrueColor ? 'Zona incierta' : 'Sin datos SWIR'}</span>
 <strong>{number(result.stats.uncertain_percent)}<small>%</small>
 </strong>
-<p>humo, nube o falta de datos estimados</p>
+<p>{hasTrueColor ? 'humo, nube o falta de datos estimados' : 'píxeles sin datos en la composición'}</p>
 </div>
     </div>
     <section className="viewer-card" aria-label="Visor del incendio">
       <div className="viewer-toolbar">
         <div className="segmented" role="group" aria-label="Composición de fondo">
-<button type="button" aria-pressed={base === 'true-color'} className={base === 'true-color' ? 'active' : ''} onClick={() => setBase('true-color')}>Color natural</button>
+{hasTrueColor && <button type="button" aria-pressed={base === 'true-color'} className={base === 'true-color' ? 'active' : ''} onClick={() => setBase('true-color')}>Color natural</button>}
 <button type="button" aria-pressed={base === 'swir'} className={base === 'swir' ? 'active' : ''} onClick={() => setBase('swir')}>SWIR</button>
 </div>
         <label className="zoom-label">Zoom <input aria-label="Zoom de la imagen" type="range" min="100" max="300" step="25" value={zoom} onChange={e => setZoom(Number(e.target.value))} />
@@ -232,6 +233,7 @@ export default function ImageForm() {
   const [scenes, setScenes] = useState([]);
   const [sceneId, setSceneId] = useState('niebla');
   const [mode, setMode] = useState('scenes');
+  const [uploadMode, setUploadMode] = useState('paired');
   const [trueFile, setTrueFile] = useState(null);
   const [swirFile, setSwirFile] = useState(null);
   const [sensitivity, setSensitivity] = useState(50);
@@ -297,8 +299,8 @@ export default function ImageForm() {
   }, [busy]);
   async function submit(event) {
     event.preventDefault();
-    if (mode === 'uploads' && (!trueFile || !swirFile)) {
-      setError('Selecciona las dos composiciones: True Color y SWIR.');
+    if (mode === 'uploads' && (!swirFile || uploadMode === 'paired' && !trueFile)) {
+      setError(uploadMode === 'swir_only' ? 'Selecciona una composición SWIR.' : 'Selecciona True Color y SWIR, o cambia el modo a Solo SWIR.');
       return;
     }
     setBusy(true);
@@ -321,8 +323,9 @@ export default function ImageForm() {
         })
       });else {
         const form = new FormData();
-        form.append('image1', trueFile);
+        if (uploadMode === 'paired') form.append('image1', trueFile);
         form.append('image2', swirFile);
+        form.append('input_mode', uploadMode);
         form.append('sensitivity', sensitivity / 100);
         form.append('max_side', resolution);
         form.append('refine', refine);
@@ -435,11 +438,22 @@ export default function ImageForm() {
 <small>True Color + SWIR</small>
 </span>
 <i>{sceneId === scene.id ? '●' : '○'}</i>
-</button>)}{!scenes.length && <p className="muted">Las escenas aparecerán al conectar con el backend.</p>}</div> : <div className="upload-list">{[['True Color', trueFile, setTrueFile], ['Composición SWIR', swirFile, setSwirFile]].map(([label, file, setter]) => <label className="upload-field" key={label}>
-<span>{label}</span>
-<small>{file ? file.name : 'Elige un archivo JPEG, PNG o WebP · hasta 80 MB'}</small>
-<input type="file" accept="image/jpeg,image/png,image/webp" aria-label={label} onChange={event => changeInput(() => setter(event.target.files[0] || null))} />
-</label>)}<p className="muted">Usa True Color y SWIR de la misma escena, encuadre y momento de captura.</p>
+</button>)}{!scenes.length && <p className="muted">Las escenas aparecerán al conectar con el backend.</p>}</div> : <div className="upload-list">
+<div className="segmented source-tabs" role="group" aria-label="Modo de carga">
+<button type="button" aria-pressed={uploadMode === 'paired'} className={uploadMode === 'paired' ? 'active' : ''} onClick={() => changeInput(() => setUploadMode('paired'))}>True Color + SWIR</button>
+<button type="button" aria-pressed={uploadMode === 'swir_only'} className={uploadMode === 'swir_only' ? 'active' : ''} onClick={() => changeInput(() => { setUploadMode('swir_only'); setTrueFile(null); })}>Solo SWIR</button>
+</div>
+{uploadMode === 'paired' && <label className="upload-field">
+<span>True Color</span>
+<small>{trueFile ? trueFile.name : 'Elige un archivo JPEG, PNG o WebP · hasta 80 MB'}</small>
+<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="True Color" onChange={event => changeInput(() => setTrueFile(event.target.files[0] || null))} />
+</label>}
+<label className="upload-field">
+<span>Composición SWIR</span>
+<small>{swirFile ? swirFile.name : 'Elige un archivo JPEG, PNG o WebP · hasta 80 MB'}</small>
+<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Composición SWIR" onChange={event => changeInput(() => setSwirFile(event.target.files[0] || null))} />
+</label>
+<p className="muted">{uploadMode === 'paired' ? 'Usa True Color y SWIR de la misma escena, encuadre y momento de captura.' : 'Se analizará únicamente la composición SWIR. No se aplicarán los filtros que necesitan True Color.'}</p>
 </div>}
         <div className="analysis-settings">
 <div className="setting-title level-title">

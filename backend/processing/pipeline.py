@@ -30,7 +30,8 @@ def refine_boundary(mask, swir_rgb, true_rgb, config):
     if swir.shape[:2] == mask.shape:
         return mask, None, None
     height, width = swir.shape[:2]
-    visible = cv2.resize(true_rgb, (width, height), interpolation=cv2.INTER_AREA)
+    visible = (swir.copy() if true_rgb is None else
+               cv2.resize(true_rgb, (width, height), interpolation=cv2.INTER_AREA))
     up = cv2.resize(mask.astype(np.uint8), (width, height), interpolation=cv2.INTER_NEAREST)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
     outer = cv2.dilate(up, kernel).astype(bool)
@@ -42,7 +43,7 @@ def refine_boundary(mask, swir_rgb, true_rgb, config):
     _, low = thresholds(config)
     for y in range(0, height, 384):
         end = min(height, y + 384)
-        f = extract_features(swir[y:end], visible[y:end])
+        f = extract_features(swir[y:end], None if true_rgb is None else visible[y:end])
         uncertain[y:end] = f["uncertain"]
         refined[y:end] |= band[y:end] & (f["score"] >= low) & f["valid"]
     refined &= ~uncertain
@@ -51,19 +52,21 @@ def refine_boundary(mask, swir_rgb, true_rgb, config):
     return refined, swir, visible
 
 
-def analyze(swir_rgb, true_rgb, config=None, original_size=None, active_fire=False):
+def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fire=False):
     started = perf_counter()
     config = config or SegmentationConfig()
-    if swir_rgb.shape != true_rgb.shape:
+    if true_rgb is not None and swir_rgb.shape != true_rgb.shape:
         raise ValueError("True Color y SWIR deben tener las mismas dimensiones y el mismo encuadre.")
     if swir_rgb.ndim != 3 or swir_rgb.shape[2] != 3 or min(swir_rgb.shape[:2]) < 32:
         raise ValueError("Se necesitan imágenes RGB de al menos 32 × 32 píxeles.")
     original_width, original_height = original_size or (swir_rgb.shape[1], swir_rgb.shape[0])
     quality = inspect_pair(swir_rgb, true_rgb)
+    swir_only = true_rgb is None
     swir = working_image(swir_rgb, config.max_side)
     height, width = swir.shape[:2]
-    visible = cv2.resize(true_rgb, (width, height), interpolation=cv2.INTER_AREA)
-    features = extract_features(swir, visible)
+    visible = (swir.copy() if swir_only else
+               cv2.resize(true_rgb, (width, height), interpolation=cv2.INTER_AREA))
+    features = extract_features(swir, None if swir_only else visible)
     if quality["uninformative"]:
         features["uncertain"][:] = True
     segmented = segment(features, config)
@@ -76,13 +79,17 @@ def analyze(swir_rgb, true_rgb, config=None, original_size=None, active_fire=Fal
         final_seeds = np.zeros(mask.shape, dtype=bool)
         high, _ = thresholds(config)
         for y in range(0, mask.shape[0], 384):
-            f = extract_features(swir[y:y + 384], visible[y:y + 384])
+            f = extract_features(swir[y:y + 384], None if swir_only else visible[y:y + 384])
             uncertain[y:y + 384] = f["uncertain"]
             final_seeds[y:y + 384] = (f["score"] >= high) & f["valid"] & ~f["uncertain"] & f["seed_allowed"]
         mask = clean_mask(mask, valid, uncertain, config)
+        active_uncertain = uncertain.copy()
+        active_valid = valid.copy() & (not quality["uninformative"])
     else:
         uncertain, valid = features["uncertain"], features["valid"]
         final_seeds = segmented["seeds"]
+        active_uncertain = uncertain.copy()
+        active_valid = valid.copy() & (not quality["uninformative"])
     # No fragment may survive solely by having grown through an occluded area.
     mask = reconstruct(final_seeds, mask)
     uncertain = uncertain | ~valid
@@ -93,7 +100,9 @@ def analyze(swir_rgb, true_rgb, config=None, original_size=None, active_fire=Fal
     fire = None
     overlay = render_overlay(visible, mask, uncertain)
     if active_fire:
-        fire = detect_active_fire(swir, uncertain, (original_width, original_height))
+        fire = detect_active_fire(
+            swir, active_uncertain, (original_width, original_height), observation_valid=active_valid
+        )
         fire["overlay"] = render_active_overlay(overlay, fire["mask"])
         fire["labels"] = labels.copy()
         fire["labels"][fire["mask"]] = 2
@@ -108,12 +117,18 @@ def analyze(swir_rgb, true_rgb, config=None, original_size=None, active_fire=Fal
         fire["stats"]["active_area_hectares_estimated"] = round(fire["stats"]["active_pixels"] * scale_area * config.pixel_size_m ** 2 / 10000, 3)
         for hotspot in fire["hotspots"]:
             hotspot["area_hectares_estimated"] = round(hotspot["area_analysis_pixels"] * scale_area * config.pixel_size_m ** 2 / 10000, 3)
-    warnings = ["Análisis de colores de un JPEG: no son reflectancias ni índices espectrales calibrados.",
-                f"Escala declarada: {config.pixel_size_m:g} m por píxel original cuadrado. Las medidas son estimaciones; los JPEG no contienen georreferenciación para verificar la escala ni obtener coordenadas terrestres.",
-                "La máscara de incertidumbre es una heurística visual de humo/nube y zonas sin datos."]
+    if swir_only:
+        warnings = ["Análisis de una composición SWIR renderizada: no equivale a reflectancias ni a índices espectrales calibrados.",
+                    f"Escala declarada: {config.pixel_size_m:g} m por píxel original cuadrado. Las medidas son estimaciones; la imagen no contiene georreferenciación para verificar la escala ni obtener coordenadas terrestres.",
+                    "Modo solo SWIR: no se aplican filtros que requieren True Color para distinguir agua, vegetación, superficies claras, humo o nubes; estos factores pueden generar falsos positivos o zonas no evaluadas."]
+    else:
+        warnings = ["Análisis de colores de un JPEG: no son reflectancias ni índices espectrales calibrados.",
+                    f"Escala declarada: {config.pixel_size_m:g} m por píxel original cuadrado. Las medidas son estimaciones; los JPEG no contienen georreferenciación para verificar la escala ni obtener coordenadas terrestres.",
+                    "La máscara de incertidumbre es una heurística visual de humo/nube y zonas sin datos."]
     if not count:
         warnings.append("No se encontró una región con evidencia suficiente con estos parámetros.")
-    warnings.append("El encuadre se comprueba con correspondencias geométricas cuando hay textura suficiente; no se corrigen automáticamente desplazamientos.")
+    if not swir_only:
+        warnings.append("El encuadre se comprueba con correspondencias geométricas cuando hay textura suficiente; no se corrigen automáticamente desplazamientos.")
     quality = complete_quality(quality, mask, uncertain, fire)
     return {"config": config.to_dict(), "original_size": {"width": original_width, "height": original_height},
             "analysis_size": {"width": mask.shape[1], "height": mask.shape[0]},
@@ -132,7 +147,9 @@ def analyze(swir_rgb, true_rgb, config=None, original_size=None, active_fire=Fal
                       "perimeter_m_estimated": round(perimeter * config.pixel_size_m, 2),
                       "processing_ms": round((perf_counter() - started) * 1000)},
             "warnings": warnings, "quality": quality, "mask": mask, "labels": labels, "uncertain": uncertain,
-            "true_rgb": visible, "swir_rgb": swir, "active_fire": fire,
+            "true_rgb": visible, "has_true_color": not swir_only,
+            "input_mode": "swir_only" if swir_only else "paired",
+            "swir_rgb": swir, "active_fire": fire,
             "overlay": overlay,
-            "steps": {"swir": working_image(swir_rgb, config.max_side), "true_color": cv2.resize(true_rgb, (width, height)),
+            "steps": {"swir": working_image(swir_rgb, config.max_side), "true_color": visible,
                       **features, **segmented, "cleaned": cleaned}}

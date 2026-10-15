@@ -115,7 +115,9 @@ def save_analysis(swir, visible, original_size, options, scene_name):
         result_id = uuid4().hex
         directory = RESULTS / result_id
         directory.mkdir()
-        for name, key in [("true-color.jpg", "true_rgb"), ("swir.jpg", "swir_rgb"), ("overlay.jpg", "overlay")]:
+        if result["has_true_color"]:
+            write_rgb(directory / "true-color.jpg", result["true_rgb"])
+        for name, key in [("swir.jpg", "swir_rgb"), ("overlay.jpg", "overlay")]:
             write_rgb(directory / name, result[key])
         write_mask(directory / "mask.png", result["mask"] * 255)
         write_mask(directory / "labels.png", result["labels"])
@@ -153,6 +155,8 @@ def save_analysis(swir, visible, original_size, options, scene_name):
         metadata = {key: result[key] for key in ["config", "original_size", "analysis_size", "coarse_size", "stats", "warnings", "regions", "quality", "spatial_resolution"]}
         (directory / "quality.json").write_text(json.dumps(result["quality"], ensure_ascii=False), encoding="utf-8")
         available_artifacts = set(ARTIFACTS)
+        if not result["has_true_color"]:
+            available_artifacts.discard("true-color.jpg")
         if fire is None:
             available_artifacts.difference_update({
                 "fire_overlay.jpg", "fire_layer.png", "fire_mask.png", "fire_seeds.png",
@@ -166,7 +170,8 @@ def save_analysis(swir, visible, original_size, options, scene_name):
             "fire_grown", "fire_score", "active_labels", "hotspots", "fire_context", "fire_raw_seeds",
         }
         metadata.update({"result_id": result_id, "scene_name": scene_name,
-                         "algorithm": "colour-hysteresis+multiscale-fire-context-v3" if fire is not None else "colour-hysteresis-v2",
+                         "input_mode": result["input_mode"],
+                         "algorithm": "colour-hysteresis+multiscale-fire-context-soft-uncertainty-v4" if fire is not None else "colour-hysteresis-v2",
                          "assets": assets,
                          "active_fire": {
                              "enabled": fire is not None,
@@ -220,25 +225,35 @@ async def upload_bytes(upload):
 
 
 @app.post("/api/process")
-async def process_images(image1: UploadFile = File(...), image2: UploadFile = File(...),
+async def process_images(image1: UploadFile | None = File(None), image2: UploadFile | None = File(None),
+                         input_mode: str = Form("paired"),
                          sensitivity: float = Form(0.5), max_side: int = Form(1536),
                          refine: bool = Form(True), active_fire: bool = Form(False), pixel_size_m: float = Form(20.0)):
     with analysis_slot():
-        return await process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m)
+        return await process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m, input_mode)
 
 
-async def process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m):
-    # Existing fields: image1=True Color, image2=SWIR.
+async def process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m, input_mode="paired"):
     try:
+        if input_mode not in {"paired", "swir_only"}:
+            raise ValueError("El modo de carga debe ser 'paired' o 'swir_only'.")
+        if image2 is None:
+            raise ValueError("Selecciona una composición SWIR.")
+        if input_mode == "paired" and image1 is None:
+            raise ValueError("Selecciona True Color y SWIR, o cambia el modo a Solo SWIR.")
         options = AnalysisOptions(sensitivity=sensitivity, max_side=max_side, refine=refine,
                                   active_fire=active_fire, pixel_size_m=pixel_size_m)
-        visible, visible_size = await run_in_threadpool(read_rgb, await upload_bytes(image1))
         swir, size = await run_in_threadpool(read_rgb, await upload_bytes(image2))
-        if size != visible_size:
-            raise ValueError("True Color y SWIR deben tener las mismas dimensiones originales.")
+        visible = None
+        scene_name = "Imagen SWIR subida"
+        if input_mode == "paired":
+            visible, visible_size = await run_in_threadpool(read_rgb, await upload_bytes(image1))
+            if size != visible_size:
+                raise ValueError("True Color y SWIR deben tener las mismas dimensiones originales.")
+            scene_name = "Imágenes subidas"
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    return await run_in_threadpool(save_analysis, swir, visible, size, options, "Imágenes subidas")
+    return await run_in_threadpool(save_analysis, swir, visible, size, options, scene_name)
 
 
 @app.get("/api/results/{result_id}/{artifact}")

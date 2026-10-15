@@ -30,6 +30,7 @@ class ActiveFireConfig:
     context_scale_factors: tuple = (0.5, 1.0, 2.0)
     min_red_excess: float = 0.08
     min_context_z: float = 1.5
+    uncertain_rescue_margin: float = 0.45
 
     def __post_init__(self):
         if not 0 < self.b12_candidate <= self.b12_seed <= self.b12_render_max:
@@ -38,7 +39,8 @@ class ActiveFireConfig:
             raise ValueError("Los umbrales de contraste activo deben ser positivos y ordenados.")
         if not isinstance(self.growth_steps, int) or not 0 <= self.growth_steps <= 8 or not 1 <= self.min_component_pixels <= 100:
             raise ValueError("El crecimiento y el tamaño mínimo activos están fuera de rango.")
-        if not .002 <= self.context_radius_fraction <= .10 or not 0 <= self.min_red_excess <= 1 or not 0 <= self.min_context_z <= 10:
+        if (not .002 <= self.context_radius_fraction <= .10 or not 0 <= self.min_red_excess <= 1
+                or not 0 <= self.min_context_z <= 10 or not 0 <= self.uncertain_rescue_margin <= 1):
             raise ValueError("Los parámetros de contexto activo están fuera de rango.")
         scales = tuple(self.context_scale_factors)
         if (not scales or any(not np.isfinite(scale) or scale <= 0 for scale in scales)
@@ -49,12 +51,15 @@ class ActiveFireConfig:
         return asdict(self)
 
 
-def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None):
-    """Return a sparse, uncertainty-filtered active-fire candidate mask.
+def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None, observation_valid=None):
+    """Return a sparse active-fire candidate mask with soft visual uncertainty.
 
     Expected SWIR order is R=B12, G=B11, B=B8A using the paper's fixed
     rendering limits. Two 4-neighbour growth steps and a two-pixel sieve
-    retain small hot targets while avoiding unbounded expansion.
+    retain small hot targets while avoiding unbounded expansion. When an
+    independent observation-valid mask is supplied, visual uncertainty does
+    not veto strong seeds; it only removes pixels from contextual backgrounds.
+    Calls without that mask keep the legacy hard-uncertainty behavior.
     """
     config = config or ActiveFireConfig()
     if swir_rgb.ndim != 3 or swir_rgb.shape[2] != 3 or swir_rgb.dtype != np.uint8:
@@ -68,12 +73,18 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         uncertain = np.asarray(uncertain, dtype=bool)
         if uncertain.shape != (height, width):
             raise ValueError("La incertidumbre debe compartir la cuadrícula SWIR.")
+    soft_uncertainty = observation_valid is not None
+    if soft_uncertainty:
+        observation_valid = np.asarray(observation_valid, dtype=bool)
+        if observation_valid.shape != (height, width):
+            raise ValueError("La validez de observación debe compartir la cuadrícula SWIR.")
 
     red = swir_rgb[:, :, 0].astype(np.float32) / 255.0
     rho12 = red * config.b12_render_max
     rho8a = (swir_rgb[:, :, 2].astype(np.float32) / 255.0) * config.b8a_render_max
     ratio = np.divide(rho12, rho8a, out=np.full_like(rho12, np.inf), where=rho8a > 1e-6)
-    valid = np.all(swir_rgb > 3, axis=2) & ~uncertain
+    spectral_valid = np.all(swir_rgb > 3, axis=2)
+    valid = spectral_valid & (observation_valid if soft_uncertainty else ~uncertain)
 
     raw_seeds = valid & (rho12 >= config.b12_seed) & (ratio >= config.ratio_seed)
     candidates = valid & (rho12 >= config.b12_candidate) & (ratio >= config.ratio_candidate)
@@ -82,8 +93,9 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
     context_votes = np.zeros((height, width), dtype=np.uint8)
     context_radii = []
     scale_support_pixels = []
+    uncertainty_rescued_components = None
     if config.contextual_filter:
-        background = (valid & ~raw_seeds).astype(np.float32)
+        background = (valid & ~uncertain & ~raw_seeds).astype(np.float32)
         context_radii = sorted({
             max(1, round(max(height, width) * config.context_radius_fraction * scale))
             for scale in config.context_scale_factors
@@ -105,7 +117,21 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         # support at any neighborhood size is sufficient. This preserves
         # small targets while allowing broad fronts to use wider context.
         n, seed_labels = cv2.connectedComponents(raw_seeds.astype(np.uint8), connectivity=8)
-        supported = np.bincount(seed_labels[context_support], minlength=n) > 0
+        context_supported_components = np.bincount(seed_labels[context_support], minlength=n) > 0
+        supported = context_supported_components.copy()
+        if soft_uncertainty:
+            raw_seed_margin = np.minimum(
+                np.clip((rho12 - config.b12_seed) / max(config.b12_render_max - config.b12_seed, 1e-6), 0, 1),
+                np.clip(ratio / config.ratio_seed - 1.0, 0, 1),
+            )
+            strong_uncertain_seeds = raw_seeds & uncertain & (raw_seed_margin >= config.uncertain_rescue_margin)
+            uncertainty_rescued_components = np.bincount(
+                seed_labels[strong_uncertain_seeds], minlength=n
+            ) > 0
+            # An obscured component can pass without neighborhood contrast
+            # only when its SWIR evidence is well above both seed thresholds.
+            supported |= uncertainty_rescued_components
+            uncertainty_rescued_components &= ~context_supported_components
         supported[0] = False
         seeds = supported[seed_labels]
 
@@ -123,6 +149,12 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
     keep = (stats[:, cv2.CC_STAT_AREA] >= config.min_component_pixels) & (seed_counts > 0)
     keep[0] = False
     mask = keep[component_labels]
+    uncertainty_rescued_by_output = np.zeros(component_count, dtype=bool)
+    if uncertainty_rescued_components is not None:
+        rescued_seed_pixels = seeds & uncertainty_rescued_components[seed_labels]
+        uncertainty_rescued_by_output = np.bincount(
+            component_labels[rescued_seed_pixels], minlength=component_count
+        ) > 0
 
     # A display-only spectral strength image. It is not a calibrated
     # probability and is not used in place of the rule.
@@ -140,6 +172,8 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         )
         seed_context_consistency = context_votes[seeds].astype(np.float32) / max(len(context_radii), 1)
         seed_confidence = 0.5 * seed_spectral_margin + 0.5 * seed_context_consistency
+        if soft_uncertainty:
+            seed_confidence *= np.where(uncertain[seeds], 0.5, 1.0)
         confidence_sum = np.bincount(
             component_labels[seeds], weights=seed_confidence, minlength=component_count
         )
@@ -160,6 +194,13 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         context_scale_support_by_component = np.divide(
             context_consistency_sum, seed_counts,
             out=np.zeros_like(context_consistency_sum), where=seed_counts > 0
+        )
+        uncertain_seed_count = np.bincount(
+            component_labels[seeds], weights=uncertain[seeds].astype(np.float32), minlength=component_count
+        )
+        uncertain_seed_fraction_by_component = np.divide(
+            uncertain_seed_count, seed_counts,
+            out=np.zeros_like(uncertain_seed_count), where=seed_counts > 0
         )
     else:
         confidence_by_component = None
@@ -196,6 +237,8 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
                 "confidence_score": round(float(confidence_by_component[label]), 3),
                 "context_support_fraction": round(float(context_support_by_component[label]), 3),
                 "context_scale_support": round(float(context_scale_support_by_component[label]), 3),
+                "uncertain_seed_fraction": round(float(uncertain_seed_fraction_by_component[label]), 3),
+                "uncertainty_rescued": bool(uncertainty_rescued_by_output[label]),
             })
     hotspots.sort(key=lambda item: (item["seed_pixels"], item["area_analysis_pixels"]), reverse=True)
     for index, hotspot in enumerate(hotspots, 1):
@@ -224,11 +267,14 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
             "hotspot_count": len(hotspots),
             "context_radii_pixels": context_radii,
             "context_support_pixels_by_scale": scale_support_pixels,
+            "uncertain_raw_seed_pixels": int((raw_seeds & uncertain).sum()),
+            "uncertain_seed_pixels": int((seeds & uncertain).sum()),
+            "uncertainty_rescued_hotspots": int((keep & uncertainty_rescued_by_output).sum()),
         },
         "warnings": [
             "Umbrales aproximados del SWIR-rule del paper; su referencia usa reflectancias antes del render, aquí se invierten los límites publicados sobre un JPEG cuantizado y con pérdida.",
             "La regla usa brillo y contraste R/B del render; el JPEG no permite verificar el orden de bandas ni recuperar reflectancias. Las equivalencias B12/B8A son solo la hipótesis de render del paper.",
-            "El filtro contextual comprueba contraste con el fondo en varias escalas y acepta soporte en cualquiera de ellas. Puede reducir candidatos uniformes, aunque sigue pudiendo omitir frentes débiles o extensos.",
+            "El filtro contextual comprueba contraste con el fondo observable en varias escalas. Bajo incertidumbre visual, solo rescata componentes sin contexto si su margen espectral es alto.",
             "confidence_score y context_scale_support son puntuaciones heurísticas del componente, no probabilidades calibradas.",
             "Los puntos son candidatos compatibles con fuego activo, no temperatura medida ni confirmación de incendio.",
         ],
