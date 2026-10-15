@@ -14,9 +14,9 @@ from .quality import inspect_pair, complete_quality
 
 def render_overlay(rgb, mask, uncertain, opacity=0.38):
     output = rgb.copy()
-    output[mask] = np.round((1 - opacity) * output[mask] + opacity * np.array([249, 126, 40])).astype(np.uint8)
+    output[mask] = np.round((1 - opacity) * output[mask] + opacity * np.array([3, 108, 124])).astype(np.uint8)
     contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(output, contours, -1, (255, 220, 125), 2)
+    cv2.drawContours(output, contours, -1, (255, 187, 33), 2)
     return output
 
 

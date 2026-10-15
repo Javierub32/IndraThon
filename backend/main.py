@@ -121,7 +121,7 @@ def save_analysis(swir, visible, original_size, options, scene_name):
         write_mask(directory / "labels.png", result["labels"])
         write_mask(directory / "uncertainty.png", result["uncertain"] * 255)
         layers = np.zeros((*result["mask"].shape, 4), dtype=np.uint8)
-        layers[result["mask"]] = [249, 126, 40, 255]
+        layers[result["mask"]] = [3, 108, 124, 255]
         from PIL import Image
         Image.fromarray(layers).save(directory / "layers.png")
         write_rgb(directory / "score.jpg", colored_score(result["steps"]["score"]))
@@ -139,7 +139,7 @@ def save_analysis(swir, visible, original_size, options, scene_name):
             write_rgb(directory / "fire_score.jpg", colored_score(fire["score"]))
             write_mask(directory / "active_labels.png", fire["labels"])
             fire_layer = np.zeros((*fire["mask"].shape, 4), dtype=np.uint8)
-            fire_layer[fire["mask"]] = [244, 35, 137, 230]
+            fire_layer[fire["mask"]] = [255, 187, 33, 255]
             Image.fromarray(fire_layer).save(directory / "fire_layer.png")
             fire_geometry = {"coordinate_system": "image_pixels", "original_size": result["original_size"],
                              "analysis_size": result["analysis_size"], "hotspots": fire["hotspots"]}

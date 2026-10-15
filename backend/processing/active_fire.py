@@ -173,9 +173,9 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
 
 
 def render_active_overlay(base_rgb, active_mask):
-    """Add a visually distinct magenta layer over the affected-area view."""
+    """Add an Indra solar-yellow layer over the affected-area view."""
     output = base_rgb.copy()
-    color = np.array([244, 35, 137], dtype=np.float32)
+    color = np.array([255, 187, 33], dtype=np.float32)
     output[active_mask] = np.round(
         0.18 * output[active_mask].astype(np.float32) + 0.82 * color
     ).astype(np.uint8)

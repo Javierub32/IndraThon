@@ -46,5 +46,12 @@ def write_mask(path, mask):
 
 
 def colored_score(score):
-    colored = cv2.applyColorMap(np.round(np.clip(score, 0, 1) * 255).astype(np.uint8), cv2.COLORMAP_TURBO)
-    return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
+    low = np.array([0, 66, 84], dtype=np.float32)
+    middle = np.array([3, 108, 124], dtype=np.float32)
+    high = np.array([255, 187, 33], dtype=np.float32)
+    palette = np.concatenate((
+        np.linspace(low, middle, 128),
+        np.linspace(middle, high, 128),
+    )).astype(np.uint8)
+    indices = np.round(np.clip(score, 0, 1) * 255).astype(np.uint8)
+    return palette[indices]
