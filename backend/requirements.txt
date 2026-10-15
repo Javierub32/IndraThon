@@ -3,6 +3,5 @@ uvicorn[standard]
 python-multipart
 numpy
 pillow
-numpy
 opencv-python-headless
 matplotlib
