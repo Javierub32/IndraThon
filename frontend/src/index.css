@@ -1,4 +1,11 @@
 @import "tailwindcss" ;
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./assets/fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 :root {
   font-family: "Neo Sans", Arial, sans-serif;
   color: #004254;
@@ -79,11 +86,13 @@ input[type=checkbox] {
   text-decoration: none
 }
 .brand-mark {
-  color: var(--brand-primary);
-  font-size: var(--font-size-39, 39px);
-  margin-right: 10px;
-  display: inline-block;
-  transform: rotate(-35deg)
+  display: block;
+  width: 146px;
+  height: 56px;
+  margin-right: 0;
+  object-fit: cover;
+  object-position: center;
+  flex: 0 0 auto
 }
 .brand-dot {
   color: var(--brand-accent)
@@ -1659,6 +1668,10 @@ input[type="checkbox"] {
 .app-shell.font-georgia,
 .app-shell.font-georgia * {
   font-family: Georgia, serif !important
+}
+.app-shell.font-opendyslexic,
+.app-shell.font-opendyslexic * {
+  font-family: "OpenDyslexic", Arial, sans-serif !important
 }
 .app-shell .sidebar-intro h1 {
   font-size: var(--font-sidebar-heading, 29px)
