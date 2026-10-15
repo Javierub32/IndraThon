@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+    command:
+      - uvicorn
+      - main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend/main.py:/app/main.py
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
