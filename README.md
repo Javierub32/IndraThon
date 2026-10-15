@@ -1,4 +1,4 @@
-# Brasa · Reto básico de delimitación
+# Detección de Fuegos · Reto INDRA Malackathon 2026
 
 FastAPI + React para delimitar superficies con evidencia de afectación en composiciones JPEG/PNG/WebP de Sentinel-2. Incluye las escenas de Niebla, La Mierla y Madrid–Ávila, subida de composiciones propias y un cuaderno de exploración ejecutado.
 
