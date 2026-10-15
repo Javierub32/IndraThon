@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import indraLogo from './assets/indra-group.jpg';
 const ACCESSIBILITY_STORAGE_KEY = 'brasa.accessibility';
 const DEFAULT_ACCESSIBILITY = {
   fontSize: 100,
@@ -148,7 +149,7 @@ function ResultViewer({
 <i className="legend-line" />Perímetro</label>
         <label>
 <input type="checkbox" checked={uncertain} onChange={e => setUncertain(e.target.checked)} />
-<i className="legend-swatch uncertainty-swatch" />Zona por revisar</label>
+<i className="legend-swatch uncertainty-swatch" />Area de incertidumbre</label>
         {fire?.enabled && <label className="fire-layer-toggle">
 <input type="checkbox" checked={showFire} onChange={e => setShowFire(e.target.checked)} />
 <i className="legend-swatch fire-yellow" />Posible fuego activo · {number(fire.stats.hotspot_count)}</label>}
@@ -371,8 +372,8 @@ export default function ImageForm() {
   return <div className={`app-shell ${accessibilityClasses}`} style={accessibilityStyles}>
     <a className="skip-link" href="#main-content">Saltar al contenido principal</a>
     <header className="topbar">
-<a className="brand" href="/" aria-label="Brasa, inicio">
-<span className="brand-mark">◒</span>brasa<span className="brand-dot">.</span>
+<a className="brand" href="/" aria-label="Indra Group, inicio">
+<img className="brand-mark" src={indraLogo} alt="Indra Group" />
 </a>
 <div className="topbar-title">INDRA ESPACIO <span>/</span> OBSERVACIÓN SATELITAL</div>
 <div className="topbar-actions">
@@ -399,7 +400,6 @@ export default function ImageForm() {
 <option value="arial">Arial</option>
 <option value="verdana">Verdana</option>
 <option value="georgia">Georgia</option>
-<option value="opendyslexic">OpenDyslexic · lectura accesible</option>
 </select>
 </label>
 <div className="accessibility-setting theme-setting">
