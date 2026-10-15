@@ -1,0 +1,483 @@
+{
+  "algorithm": "colour-hysteresis+rgb-context-v2",
+  "config": {
+    "max_side": 1536,
+    "sensitivity": 0.5,
+    "min_area_fraction": 0.00012,
+    "closing_radius": 2,
+    "max_hole_fraction": 0.00015,
+    "simplify_pixels": 1.5,
+    "refine": true,
+    "pixel_size_m": 20
+  },
+  "manifest_sha256": "b25fdb53973227f5dd1bdcabee198abcecfbd65a028790ce0e110ba3682f8ea2",
+  "code_sha256": {
+    "__init__.py": "435a0a11c6a836b2e777a738ebe8a9c6d5081ab8ddfdcce18dd0d486724eb042",
+    "active_fire.py": "f2abdea2795397a806a59590ee2cab0102e3cb133b5d70e7b044f97bc4582080",
+    "evaluation.py": "e0029dc8c2654fa1fc2a5cf00305bcc510adda90172b728bc643b69405e2cf20",
+    "features.py": "89bf139d40a55aa732697e3760fd7705e9d94439ec7faae8b1a9042389e7a8cc",
+    "geometry.py": "5bf4ca8545e3c3165963ddf944f6b2c19add1b907df9985a7fd3167840c5eae7",
+    "io.py": "edf67372d0380b5b2c5039085191f0d11f75bbfd263786b7c0d9f73246c6b193",
+    "pipeline.py": "aefcd142a5639b9f5f657ccfe518f726c3a5e1b2ce4c1c3fd85696a0da0b935d",
+    "quality.py": "0670679480e620a6a2f8fe4f431653b72e7ce4a6047ad2a8bdb0935707a0ec9d",
+    "segmentation.py": "d30bc68af0d6c274ad86b409edb094dd632ba750af39179741ff0ea69039b58f"
+  },
+  "interpretation": "La estabilidad mide consistencia ante perturbaciones, no precisión. Sin referencias independientes no se mide generalización.",
+  "scenes": [
+    {
+      "id": "niebla",
+      "split": "development",
+      "input_sha256": {
+        "swir": "a8e6f914164e46f9b6ed589072eda0c1b2401a208a66ed85bce03c20c6841e15",
+        "true_color": "aaa49431cf4720b4652f5c67e820bdb37b3123ca12c456e7d9b8101f80efc27d"
+      },
+      "stats": {
+        "affected_analysis_pixels": 178709,
+        "affected_original_pixels_estimated": 178709,
+        "uncertain_analysis_pixels": 325359,
+        "region_count": 11,
+        "affected_percent": 4.624,
+        "uncertain_percent": 8.418,
+        "affected_observable_percent": 5.049,
+        "perimeter_original_pixels_estimated": 10604.83,
+        "affected_area_m2_estimated": 71483600.0,
+        "affected_area_hectares_estimated": 7148.36,
+        "perimeter_m_estimated": 212096.65,
+        "processing_ms": 3154
+      },
+      "active_stats": {
+        "raw_seed_pixels": 5278,
+        "rejected_seed_pixels": 109,
+        "seed_pixels": 5169,
+        "candidate_pixels": 1766112,
+        "active_pixels": 9204,
+        "active_percent": 0.2381,
+        "hotspot_count": 36,
+        "active_area_hectares_estimated": 368.16
+      },
+      "quality": {
+        "status": "usable",
+        "uninformative": false,
+        "checks": [
+          {
+            "id": "information",
+            "label": "Información de la composición",
+            "status": "ok",
+            "detail": "La composición contiene variación espacial utilizable."
+          },
+          {
+            "id": "alignment",
+            "label": "Correspondencia espacial",
+            "status": "ok",
+            "detail": "Coincidencia geométrica: 182 puntos concordantes."
+          },
+          {
+            "id": "coverage",
+            "label": "Cobertura de ambas imágenes",
+            "status": "ok",
+            "detail": "100.0% del encuadre tiene datos no negros en ambas composiciones."
+          },
+          {
+            "id": "clipping",
+            "label": "Saturación del canal rojo",
+            "status": "ok",
+            "detail": "0.06% de píxeles alcanza el límite de visualización; en esa zona se pierde información radiométrica."
+          },
+          {
+            "id": "observation",
+            "label": "Superficie observable",
+            "status": "ok",
+            "detail": "8.4% de incertidumbre visual o falta de datos. Las zonas ocultas no se clasifican como ausencia de incendio."
+          },
+          {
+            "id": "fire_context",
+            "label": "Contraste local de los focos",
+            "status": "ok",
+            "detail": "Se descartaron 109 píxeles semilla sin contraste local suficiente. Es un filtro de candidatos, no una medida de precisión."
+          }
+        ],
+        "alignment": {
+          "status": "aligned",
+          "inliers": 182,
+          "matches": 189,
+          "max_displacement_check_pixels": 0.21,
+          "check_size": [
+            768,
+            475
+          ]
+        },
+        "paired_coverage_percent": 100.0,
+        "red_clipping_percent": 0.06,
+        "reference_validation": "not_provided",
+        "representation": "rendered_rgb",
+        "spectral_bands_verified": false
+      },
+      "metrics": {
+        "affected": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        },
+        "active": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        }
+      },
+      "context_filter_comparison": {
+        "without_context_hotspots": 44,
+        "with_context_hotspots": 36,
+        "interpretation": "Reducción de candidatos; no equivale a reducción medida de falsos positivos."
+      },
+      "stability": {
+        "brightness_0.9": {
+          "affected": {
+            "iou_self_consistency": 0.9880672643242943,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.940469805856484,
+            "both_empty": false
+          }
+        },
+        "brightness_1.1": {
+          "affected": {
+            "iou_self_consistency": 0.9923845734805279,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.7778471788465542,
+            "both_empty": false
+          }
+        },
+        "jpeg_quality_70": {
+          "affected": {
+            "iou_self_consistency": 0.9283557403004402,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.7586522801302932,
+            "both_empty": false
+          }
+        },
+        "scale_075": {
+          "affected": {
+            "iou_self_consistency": 0.9657383234977952,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.8436146665383505,
+            "both_empty": false
+          }
+        }
+      },
+      "seconds": 3.47,
+      "stability_review": []
+    },
+    {
+      "id": "la-mierla",
+      "split": "development",
+      "input_sha256": {
+        "swir": "a9120c50728411c8eba312418a1c3767beeade5682c6c83f69e5eaed7a7e1875",
+        "true_color": "150dae5237c988708d4b96e3ab69ab26a91c7d7d9686336c08cb0720fb886908"
+      },
+      "stats": {
+        "affected_analysis_pixels": 360621,
+        "affected_original_pixels_estimated": 360621,
+        "uncertain_analysis_pixels": 110463,
+        "region_count": 14,
+        "affected_percent": 9.33,
+        "uncertain_percent": 2.858,
+        "affected_observable_percent": 9.605,
+        "perimeter_original_pixels_estimated": 17029.0,
+        "affected_area_m2_estimated": 144248400.0,
+        "affected_area_hectares_estimated": 14424.84,
+        "perimeter_m_estimated": 340579.94,
+        "processing_ms": 2374
+      },
+      "active_stats": {
+        "raw_seed_pixels": 5201,
+        "rejected_seed_pixels": 1535,
+        "seed_pixels": 3666,
+        "candidate_pixels": 1284581,
+        "active_pixels": 8552,
+        "active_percent": 0.2213,
+        "hotspot_count": 65,
+        "active_area_hectares_estimated": 342.08
+      },
+      "quality": {
+        "status": "usable",
+        "uninformative": false,
+        "checks": [
+          {
+            "id": "information",
+            "label": "Información de la composición",
+            "status": "ok",
+            "detail": "La composición contiene variación espacial utilizable."
+          },
+          {
+            "id": "alignment",
+            "label": "Correspondencia espacial",
+            "status": "ok",
+            "detail": "Coincidencia geométrica: 75 puntos concordantes."
+          },
+          {
+            "id": "coverage",
+            "label": "Cobertura de ambas imágenes",
+            "status": "ok",
+            "detail": "100.0% del encuadre tiene datos no negros en ambas composiciones."
+          },
+          {
+            "id": "clipping",
+            "label": "Saturación del canal rojo",
+            "status": "ok",
+            "detail": "0.0% de píxeles alcanza el límite de visualización; en esa zona se pierde información radiométrica."
+          },
+          {
+            "id": "observation",
+            "label": "Superficie observable",
+            "status": "ok",
+            "detail": "2.9% de incertidumbre visual o falta de datos. Las zonas ocultas no se clasifican como ausencia de incendio."
+          },
+          {
+            "id": "fire_context",
+            "label": "Contraste local de los focos",
+            "status": "ok",
+            "detail": "Se descartaron 1535 píxeles semilla sin contraste local suficiente. Es un filtro de candidatos, no una medida de precisión."
+          }
+        ],
+        "alignment": {
+          "status": "aligned",
+          "inliers": 75,
+          "matches": 86,
+          "max_displacement_check_pixels": 0.68,
+          "check_size": [
+            768,
+            475
+          ]
+        },
+        "paired_coverage_percent": 100.0,
+        "red_clipping_percent": 0.0,
+        "reference_validation": "not_provided",
+        "representation": "rendered_rgb",
+        "spectral_bands_verified": false
+      },
+      "metrics": {
+        "affected": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        },
+        "active": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        }
+      },
+      "context_filter_comparison": {
+        "without_context_hotspots": 195,
+        "with_context_hotspots": 65,
+        "interpretation": "Reducción de candidatos; no equivale a reducción medida de falsos positivos."
+      },
+      "stability": {
+        "brightness_0.9": {
+          "affected": {
+            "iou_self_consistency": 0.995275272170356,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.7976377952755905,
+            "both_empty": false
+          }
+        },
+        "brightness_1.1": {
+          "affected": {
+            "iou_self_consistency": 0.9949225264227418,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.8820710490676112,
+            "both_empty": false
+          }
+        },
+        "jpeg_quality_70": {
+          "affected": {
+            "iou_self_consistency": 0.9304194712657528,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.6085063291139241,
+            "both_empty": false
+          }
+        },
+        "scale_075": {
+          "affected": {
+            "iou_self_consistency": 0.963576844871103,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.7553686293913904,
+            "both_empty": false
+          }
+        }
+      },
+      "seconds": 2.68,
+      "stability_review": []
+    },
+    {
+      "id": "madrid-avila",
+      "split": "development",
+      "input_sha256": {
+        "swir": "5f651e2ebd85626f3130b8d43699de12904f57c16070fa3c669b24ef8c5bf09b",
+        "true_color": "37ebc6c7917a32e280de81d25284e30e89dea9d42b34769cfa9f94ca0442bf4c"
+      },
+      "stats": {
+        "affected_analysis_pixels": 224922,
+        "affected_original_pixels_estimated": 2349879,
+        "uncertain_analysis_pixels": 461185,
+        "region_count": 16,
+        "affected_percent": 3.854,
+        "uncertain_percent": 7.901,
+        "affected_observable_percent": 4.184,
+        "perimeter_original_pixels_estimated": 58842.91,
+        "affected_area_m2_estimated": 939951535.08,
+        "affected_area_hectares_estimated": 93995.154,
+        "perimeter_m_estimated": 1176858.1,
+        "processing_ms": 4956
+      },
+      "active_stats": {
+        "raw_seed_pixels": 9255,
+        "rejected_seed_pixels": 2630,
+        "seed_pixels": 6625,
+        "candidate_pixels": 1977474,
+        "active_pixels": 16573,
+        "active_percent": 0.2839,
+        "hotspot_count": 207,
+        "active_area_hectares_estimated": 6925.875
+      },
+      "quality": {
+        "status": "usable",
+        "uninformative": false,
+        "checks": [
+          {
+            "id": "information",
+            "label": "Información de la composición",
+            "status": "ok",
+            "detail": "La composición contiene variación espacial utilizable."
+          },
+          {
+            "id": "alignment",
+            "label": "Correspondencia espacial",
+            "status": "ok",
+            "detail": "Coincidencia geométrica: 27 puntos concordantes."
+          },
+          {
+            "id": "coverage",
+            "label": "Cobertura de ambas imágenes",
+            "status": "ok",
+            "detail": "100.0% del encuadre tiene datos no negros en ambas composiciones."
+          },
+          {
+            "id": "clipping",
+            "label": "Saturación del canal rojo",
+            "status": "ok",
+            "detail": "0.0% de píxeles alcanza el límite de visualización; en esa zona se pierde información radiométrica."
+          },
+          {
+            "id": "observation",
+            "label": "Superficie observable",
+            "status": "ok",
+            "detail": "7.9% de incertidumbre visual o falta de datos. Las zonas ocultas no se clasifican como ausencia de incendio."
+          },
+          {
+            "id": "fire_context",
+            "label": "Contraste local de los focos",
+            "status": "ok",
+            "detail": "Se descartaron 2630 píxeles semilla sin contraste local suficiente. Es un filtro de candidatos, no una medida de precisión."
+          }
+        ],
+        "alignment": {
+          "status": "aligned",
+          "inliers": 27,
+          "matches": 34,
+          "max_displacement_check_pixels": 0.61,
+          "check_size": [
+            768,
+            475
+          ]
+        },
+        "paired_coverage_percent": 100.0,
+        "red_clipping_percent": 0.0,
+        "reference_validation": "not_provided",
+        "representation": "rendered_rgb",
+        "spectral_bands_verified": false
+      },
+      "metrics": {
+        "affected": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        },
+        "active": {
+          "status": "not_provided",
+          "pixel": null,
+          "components": null
+        }
+      },
+      "context_filter_comparison": {
+        "without_context_hotspots": 388,
+        "with_context_hotspots": 207,
+        "interpretation": "Reducción de candidatos; no equivale a reducción medida de falsos positivos."
+      },
+      "stability": {
+        "brightness_0.9": {
+          "affected": {
+            "iou_self_consistency": 0.9920098722467351,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.4143225574281773,
+            "both_empty": false
+          }
+        },
+        "brightness_1.1": {
+          "affected": {
+            "iou_self_consistency": 0.9868281123824569,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.5550213128729753,
+            "both_empty": false
+          }
+        },
+        "jpeg_quality_70": {
+          "affected": {
+            "iou_self_consistency": 0.8932821211311649,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.5111397223466189,
+            "both_empty": false
+          }
+        },
+        "scale_075": {
+          "affected": {
+            "iou_self_consistency": 0.9689495320563282,
+            "both_empty": false
+          },
+          "active": {
+            "iou_self_consistency": 0.8867709815078236,
+            "both_empty": false
+          }
+        }
+      },
+      "seconds": 5.57,
+      "stability_review": [
+        "brightness_0.9/active",
+        "brightness_1.1/active",
+        "jpeg_quality_70/active"
+      ]
+    }
+  ],
+  "stability_review_threshold": 0.6
+}

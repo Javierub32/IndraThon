@@ -3,6 +3,7 @@ const number = value => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 1
 }).format(value);
 const steps = [['swir', '01', 'Composición SWIR', 'La entrada de color que utilizamos para localizar la cicatriz.'], ['score', '02', 'Evidencia de color', 'Azul: evidencia baja. Rojo: evidencia alta. No es una probabilidad calibrada.'], ['seeds', '03', 'Semillas', 'Píxeles que superan el umbral más estricto.'], ['candidates', '04', 'Candidatos', 'Superficies compatibles con el umbral permisivo.'], ['grown', '05', 'Regiones conectadas', 'Candidatos conectados con al menos una semilla.'], ['cleaned', '06', 'Limpieza', 'Filtrado de componentes y relleno limitado de huecos.'], ['overlay', '07', 'Perímetro final', 'Resultado tras el refinamiento opcional de los límites.']];
+const activeFireSteps = [['fire_score', '08', 'Contraste del render', 'Brillo rojo y contraste R/B; la equivalencia con bandas espectrales depende del render. No es temperatura.'], ['fire_raw_seeds', '09', 'Semillas cromáticas', 'Primer filtro fijo de brillo y relación entre canales.'], ['fire_context', '10', 'Contraste local', 'Semillas anómalamente brillantes frente al fondo local. Ayuda a descartar superficies rojas uniformes.'], ['fire_seeds', '11', 'Semillas aceptadas', 'Componentes de semillas con apoyo contextual.'], ['fire_candidates', '12', 'Candidatos activos', 'Píxeles compatibles con los umbrales permisivos.'], ['fire_grown', '13', 'Crecimiento limitado', 'Las semillas se expanden hasta dos pasos dentro de los candidatos.'], ['fire_mask', '14', 'Focos posibles', 'Componentes de actividad aparente, dibujados en magenta.']];
 async function request(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
@@ -28,17 +29,36 @@ function Contours({
     })}
   </svg>;
 }
+function FireMarkers({
+  hotspots,
+  originalSize
+}) {
+  return <svg className="fire-markers-layer" viewBox={`0 0 ${originalSize.width} ${originalSize.height}`} aria-label="Marcadores de posibles focos activos">
+    {hotspots.map(hotspot => {
+      const [x, y] = hotspot.centroid;
+      return <g key={hotspot.id}>
+        <title>{`Posible foco ${hotspot.id}; ${hotspot.seed_pixels} píxeles semilla`}</title>
+        <circle cx={x} cy={y} r="2" fill="#f42389" stroke="#f42389" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+      </g>;
+    })}
+  </svg>;
+}
 function ResultViewer({
   result
 }) {
   const [base, setBase] = useState('true-color');
-  const [fill, setFill] = useState(true);
+  const [segmentation, setSegmentation] = useState(true);
+  const [showFire, setShowFire] = useState(Boolean(result.active_fire?.enabled));
   const [perimeter, setPerimeter] = useState(true);
   const [uncertain, setUncertain] = useState(false);
   const [opacity, setOpacity] = useState(38);
   const [zoom, setZoom] = useState(100);
   const [selected, setSelected] = useState(null);
   const [activeStep, setActiveStep] = useState('overlay');
+  const fire = result.active_fire;
+  const visibleSteps = fire?.enabled ? [...steps, ...activeFireSteps] : steps;
+  const downloads = [['overlay', 'Superposición de cicatriz JPG', 'jpg'], ['mask', 'Máscara binaria PNG', 'png'], ['labels', 'Etiquetas 0 / 1 / 255 PNG', 'png'], ['regions', 'Perímetros JSON', 'json'], ['metadata', 'Análisis y parámetros', 'json'], ['quality', 'Comprobaciones de calidad', 'json']];
+  if (fire?.enabled) downloads.splice(1, 0, ['fire_overlay', 'Superposición de focos JPG', 'jpg'], ['fire_mask', 'Máscara de focos PNG', 'png'], ['active_labels', 'Etiquetas 0 / 1 / 2 / 255 PNG', 'png'], ['hotspots', 'Coordenadas de focos JSON', 'json']);
   return <>
     <section className="result-heading">
       <div>
@@ -51,9 +71,9 @@ function ResultViewer({
     <div className="stat-grid">
       <div>
 <span>Superficie detectada</span>
-<strong>{number(result.stats.affected_percent)}<small>%</small>
+<strong>{number(result.stats.affected_area_hectares_estimated)}<small>ha</small>
 </strong>
-<p>del encuadre analizado</p>
+<p>{number(result.stats.affected_percent)}% del encuadre · estimación</p>
 </div>
       <div>
 <span>Regiones delimitadas</span>
@@ -62,9 +82,9 @@ function ResultViewer({
 </div>
       <div>
 <span>Perímetro exterior</span>
-<strong>{number(result.stats.perimeter_original_pixels_estimated)}<small>px</small>
+<strong>{number(result.stats.perimeter_m_estimated / 1000)}<small>km</small>
 </strong>
-<p>estimado en la imagen original</p>
+<p>estimado · {number(result.config.pixel_size_m)} m/píxel original</p>
 </div>
       <div>
 <span>Zona incierta</span>
@@ -88,31 +108,36 @@ function ResultViewer({
           width: `${zoom}%`
         }}>
           <img className="base-image" src={result.assets[base]} alt={`Composición ${base === 'swir' ? 'SWIR' : 'en color natural'} de ${result.scene_name}`} />
-          {fill && <img className="raster-layer" style={{
+          {segmentation && <img className="raster-layer" style={{
             opacity: opacity / 100
           }} src={result.assets.layers} alt="" />}
           {uncertain && <div className="uncertainty-layer" style={{
             maskImage: `url(${result.assets.uncertainty})`
           }} />}
-          {perimeter && <Contours result={result} selected={selected} />}
+          {fire?.enabled && showFire && <img className="fire-raster-layer" src={result.assets.fire_layer} alt="" />}
+          {segmentation && perimeter && <Contours result={result} selected={selected} />}
+          {fire?.enabled && showFire && <FireMarkers hotspots={fire.hotspots} originalSize={result.original_size} />}
         </div>
       </div>
       <div className="layer-toolbar">
         <label>
-<input type="checkbox" checked={fill} onChange={e => setFill(e.target.checked)} />
-<i className="legend-swatch orange" />Área afectada</label>
+<input type="checkbox" checked={segmentation} onChange={e => setSegmentation(e.target.checked)} />
+<i className="legend-swatch orange" />Segmentación</label>
         <label>
-<input type="checkbox" checked={perimeter} onChange={e => setPerimeter(e.target.checked)} />
+<input type="checkbox" checked={perimeter} disabled={!segmentation} onChange={e => setPerimeter(e.target.checked)} />
 <i className="legend-line" />Perímetro</label>
         <label>
 <input type="checkbox" checked={uncertain} onChange={e => setUncertain(e.target.checked)} />
 <i className="legend-swatch blue" />Incertidumbre</label>
-        <label className="opacity-label">Opacidad <input aria-label="Opacidad de la máscara" type="range" min="0" max="90" value={opacity} onChange={e => setOpacity(Number(e.target.value))} />
+        {fire?.enabled && <label className="fire-layer-toggle">
+<input type="checkbox" checked={showFire} onChange={e => setShowFire(e.target.checked)} />
+<i className="legend-swatch fire-pink" />Posible fuego activo · {number(fire.stats.hotspot_count)}</label>}
+        <label className="opacity-label">Opacidad <input aria-label="Opacidad de la máscara" disabled={!segmentation} type="range" min="0" max="90" value={opacity} onChange={e => setOpacity(Number(e.target.value))} />
 </label>
       </div>
       <div className="viewer-caption">
 <span>{number(result.original_size.width)} × {number(result.original_size.height)} px originales</span>
-<span>Máscara: {result.analysis_size.width} × {result.analysis_size.height} px · coordenadas de imagen</span>
+<span>Máscara: {result.analysis_size.width} × {result.analysis_size.height} px · {number(result.config.pixel_size_m)} m/px original</span>
 </div>
     </section>
     <div className="detail-grid">
@@ -125,9 +150,9 @@ function ResultViewer({
 <span className="region-number">{String(region.id).padStart(2, '0')}</span>
 <span>
 <strong>Región {region.id}</strong>
-<small>{number(region.area_original_pixels_estimated)} px² estimados</small>
+<small>{number(region.area_hectares_estimated)} ha estimadas</small>
 </span>
-<span>{number(region.perimeter_original_pixels_estimated)} px</span>
+<span>{number(region.perimeter_m_estimated / 1000)} km</span>
 </button>)}</div> : <p className="muted">No se han encontrado regiones con estos parámetros. Puedes revisar la evidencia y ajustar la sensibilidad.</p>}
         {result.regions.length > 40 && <p className="muted">Se muestran las 40 mayores. La descarga incluye todas las regiones.</p>}
       </section>
@@ -135,29 +160,47 @@ function ResultViewer({
 <span className="eyebrow">LLEVA EL RESULTADO CONTIGO</span>
 <h3>Exportar análisis</h3>
 <p>Máscaras, límites y parámetros para seguir trabajando con el resultado.</p>
-<div className="downloads">{[['overlay', 'Superposición JPG', 'jpg'], ['mask', 'Máscara binaria PNG', 'png'], ['labels', 'Etiquetas 0 / 1 / 255', 'png'], ['regions', 'Perímetros JSON', 'json'], ['metadata', 'Análisis y parámetros', 'json']].map(([key, label, extension]) => <a key={key} href={result.assets[key]} download={`brasa-${key}.${extension}`}>{label}<span aria-hidden="true">↗</span>
+<div className="downloads">{downloads.map(([key, label, extension]) => <a key={key} href={result.assets[key]} download={`brasa-${key}.${extension}`}>{label}<span aria-hidden="true">↗</span>
 </a>)}</div>
-<p className="unit-note">Las medidas son estimaciones en píxeles. Estos JPEG no incluyen una escala geográfica que permita calcular hectáreas o metros.</p>
+<p className="unit-note">Escala declarada de {number(result.config.pixel_size_m)} m por píxel original cuadrado. El cálculo compensa la reducción de resolución. Son estimaciones sin georreferenciación.</p>
 </section>
     </div>
+    {result.quality && <section className="panel quality-panel" aria-label="Calidad del análisis">
+<div className="section-title"><h3>Comprobaciones automáticas</h3><span>{result.quality.status === 'usable' ? 'Entrada utilizable' : 'Revisar resultado'}</span></div>
+<p>Comprueban la entrada y las condiciones de observación. La precisión de detección requiere máscaras de referencia independientes.</p>
+<div className="quality-checks">{result.quality.checks.map(check => <div className={`quality-check ${check.status}`} key={check.id}><strong>{check.status === 'ok' ? '✓' : '△'} {check.label}</strong><p>{check.detail}</p></div>)}</div>
+</section>}
     <section className="panel process-panel">
 <div className="section-title">
 <div>
 <span className="eyebrow">UN PROCESO EXPLICABLE</span>
-<h3>De la imagen al perímetro</h3>
+<h3>{fire?.enabled ? 'Del territorio a los focos activos' : 'De la imagen al perímetro'}</h3>
 </div>
-<span>7 pasos</span>
+<span>{visibleSteps.length} pasos</span>
 </div>
-<div className="step-list">{steps.map(([key, index, title]) => <button type="button" key={key} className={`step-card ${activeStep === key ? 'selected' : ''}`} onClick={() => setActiveStep(key)}>
+<div className={`step-list ${fire?.enabled ? 'advanced' : ''}`}>{visibleSteps.map(([key, index, title]) => <button type="button" key={key} className={`step-card ${activeStep === key ? 'selected' : ''}`} onClick={() => setActiveStep(key)}>
 <img src={result.assets[key]} alt="" loading="lazy" />
 <span>{index}</span>
 <strong>{title}</strong>
 </button>)}</div>
 <div className="step-detail">
-<img src={result.assets[activeStep]} alt={steps.find(([key]) => key === activeStep)[2]} loading="lazy" />
-<p>{steps.find(([key]) => key === activeStep)[3]}</p>
+<img src={result.assets[activeStep]} alt={visibleSteps.find(([key]) => key === activeStep)[2]} loading="lazy" />
+<p>{visibleSteps.find(([key]) => key === activeStep)[3]}</p>
 </div>
 </section>
+    {fire?.enabled && <section className="panel active-fire-summary">
+<div className="section-title">
+<div><span className="eyebrow">RETO AVANZADO · ACTIVIDAD EN LA ADQUISICIÓN</span><h3>Posibles focos activos</h3></div>
+<span>{number(fire.stats.hotspot_count)} regiones</span>
+</div>
+<p>{number(fire.stats.active_pixels)} píxeles candidatos agrupados en focos. Los marcadores magenta son distintos de la superficie afectada naranja.</p>
+{fire.hotspots.length > 0 ? <div className="hotspot-list">{fire.hotspots.slice(0, 12).map(hotspot => <div className="hotspot-row" key={hotspot.id}>
+<strong>Foco {String(hotspot.id).padStart(2, '0')}</strong>
+<span>x {number(hotspot.centroid[0])} · y {number(hotspot.centroid[1])} px</span>
+<span>{number(hotspot.area_hectares_estimated)} ha aprox. · {number(hotspot.seed_pixels)} semillas</span>
+</div>)}</div> : <p className="muted">No se encontraron píxeles candidatos con estos umbrales. Esto no demuestra que no hubiera fuego activo.</p>}
+<ul>{fire.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+</section>}
     <details className="method-notes">
 <summary>Alcance del método y parámetros utilizados</summary>
 <ul>{result.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
@@ -174,6 +217,7 @@ export default function ImageForm() {
   const [sensitivity, setSensitivity] = useState(50);
   const [resolution, setResolution] = useState(1536);
   const [refine, setRefine] = useState(true);
+  const [pixelSize, setPixelSize] = useState(20);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -217,7 +261,9 @@ export default function ImageForm() {
         body: JSON.stringify({
           sensitivity: sensitivity / 100,
           max_side: resolution,
-          refine
+          refine,
+          pixel_size_m: pixelSize,
+          active_fire: true
         })
       });else {
         const form = new FormData();
@@ -226,6 +272,8 @@ export default function ImageForm() {
         form.append('sensitivity', sensitivity / 100);
         form.append('max_side', resolution);
         form.append('refine', refine);
+        form.append('pixel_size_m', pixelSize);
+        form.append('active_fire', 'true');
         data = await request('/api/process', {
           method: 'POST',
           body: form
@@ -282,6 +330,11 @@ export default function ImageForm() {
 </label>)}<p className="muted">Mismo tamaño, encuadre y adquisición. Selecciona las composiciones en el orden indicado.</p>
 </div>}
         <div className="analysis-settings">
+<div className="setting-title level-title">
+<h2>Análisis completo</h2>
+<span>CAPAS INDEPENDIENTES</span>
+</div>
+<p className="analysis-hint">Calcula la segmentación y el posible fuego activo. Puedes activar cada capa por separado o ver ambas simultáneamente en el visor.</p>
 <div className="setting-title">
 <h2>Parámetros del análisis</h2>
 <span>CLÁSICO · RGB</span>
@@ -299,6 +352,8 @@ export default function ImageForm() {
 <option value="2048">2048 px · detallada</option>
 </select>
 </label>
+<label className="select-label" htmlFor="pixel-size">Metros por píxel original<input id="pixel-size" type="number" min="0.01" max="10000" step="any" required value={pixelSize} onChange={e => setPixelSize(e.target.value === '' ? '' : Number(e.target.value))} /></label>
+<p className="analysis-hint">Sentinel: 20 m/px. Ajusta la escala si la exportación fue remuestreada.</p>
 <label className="refine-option">
 <input type="checkbox" checked={refine} onChange={e => setRefine(e.target.checked)} />
 <span>Refinar los límites<small>Segunda pasada a mayor resolución</small>
@@ -306,17 +361,17 @@ export default function ImageForm() {
 </label>
 </div>
         <button className="analyze-button" type="submit" disabled={busy || mode === 'scenes' && !scenes.length}>{busy ? <>
-<span className="spinner" />Analizando · {elapsed} s</> : <>Delimitar área afectada<span aria-hidden="true">↗</span>
+<span className="spinner" />Analizando · {elapsed} s</> : <>Analizar imágenes<span aria-hidden="true">↗</span>
 </>}</button>
 </fieldset>
 </form>
 <div className="sidebar-foot">
 <span className="tiny-mark">◉</span>
-<p>Sentinel-2 · Composiciones de visualización<br />Reto básico · Malackathon 2026</p>
+<p>Sentinel-2 · Composiciones de visualización<br />Retos básico y avanzado · Malackathon 2026</p>
 </div>
     </aside>
     <main className="main-content">{error && <div className="error-banner" role="alert">{error}</div>}{busy && <div className="progress-banner" role="status">
-<span className="spinner" />Calculando evidencia, conectividad y perímetros. El resultado aparecerá al terminar.</div>}
+<span className="spinner" />Calculando la segmentación y los posibles focos activos. El resultado aparecerá al terminar.</div>}
       {result ? <ResultViewer key={result.result_id} result={result} /> : <section className="welcome">
 <div className="welcome-top">
 <span className="eyebrow">DELIMITACIÓN DE LA SUPERFICIE AFECTADA</span>
@@ -347,7 +402,7 @@ export default function ImageForm() {
 <p>Capas, incertidumbre y resultados descargables.</p>
 </div>
 </div>
-<p className="welcome-note">Este análisis estima evidencias de afectación. Los colores del JPEG no permiten medir reflectancias ni superficies en hectáreas.</p>
+<p className="welcome-note">Este análisis estima evidencias de afectación. Las medidas usan la escala declarada de {number(pixelSize || 20)} m por píxel original; los colores del JPEG no son reflectancias.</p>
 </section>}
       <footer className="main-footer">
 <span>BRASA / LABORATORIO DE OBSERVACIÓN</span>

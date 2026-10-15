@@ -24,7 +24,12 @@ def read_rgb(source, max_side=4096):
             factor = min(1.0, max_side / max(original_size))
             target = tuple(max(1, round(value * factor)) for value in original_size)
             image.draft("RGB", target)
-            image = image.convert("RGB")
+            if "A" in image.getbands() or "transparency" in image.info:
+                rgba = image.convert("RGBA")
+                image = Image.new("RGB", rgba.size, (0, 0, 0))
+                image.paste(rgba, mask=rgba.getchannel("A"))
+            else:
+                image = image.convert("RGB")
             if image.size != target:
                 image = image.resize(target, Image.Resampling.LANCZOS)
             return np.array(image), original_size
