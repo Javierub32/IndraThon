@@ -148,7 +148,7 @@ function ResultViewer({
 <i className="legend-line" />Perímetro</label>
         <label>
 <input type="checkbox" checked={uncertain} onChange={e => setUncertain(e.target.checked)} />
-<i className="legend-swatch uncertainty-swatch" />Zona por revisar</label>
+<i className="legend-swatch uncertainty-swatch" />Area de incertidumbre</label>
         {fire?.enabled && <label className="fire-layer-toggle">
 <input type="checkbox" checked={showFire} onChange={e => setShowFire(e.target.checked)} />
 <i className="legend-swatch fire-yellow" />Posible fuego activo · {number(fire.stats.hotspot_count)}</label>}
