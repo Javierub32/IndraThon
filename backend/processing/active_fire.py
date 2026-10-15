@@ -31,6 +31,7 @@ class ActiveFireConfig:
     min_red_excess: float = 0.08
     min_context_z: float = 1.5
     uncertain_rescue_margin: float = 0.45
+    sensitivity: float = 0.5
 
     def __post_init__(self):
         if not 0 < self.b12_candidate <= self.b12_seed <= self.b12_render_max:
@@ -42,6 +43,8 @@ class ActiveFireConfig:
         if (not .002 <= self.context_radius_fraction <= .10 or not 0 <= self.min_red_excess <= 1
                 or not 0 <= self.min_context_z <= 10 or not 0 <= self.uncertain_rescue_margin <= 1):
             raise ValueError("Los parámetros de contexto activo están fuera de rango.")
+        if not np.isfinite(self.sensitivity) or not 0 <= self.sensitivity <= 1:
+            raise ValueError("La sensibilidad de focos activos debe estar entre 0 y 1.")
         scales = tuple(self.context_scale_factors)
         if (not scales or any(not np.isfinite(scale) or scale <= 0 for scale in scales)
                 or tuple(sorted(set(scales))) != scales):
@@ -49,6 +52,20 @@ class ActiveFireConfig:
 
     def to_dict(self):
         return asdict(self)
+
+    @classmethod
+    def from_sensitivity(cls, sensitivity):
+        """Tune the active-fire thresholds while preserving defaults at 50%."""
+        if not np.isfinite(sensitivity) or not 0 <= sensitivity <= 1:
+            raise ValueError("La sensibilidad de focos activos debe estar entre 0 y 1.")
+        strictness = 0.5 - float(sensitivity)
+        return cls(
+            b12_seed=0.35 + 0.10 * strictness,
+            ratio_seed=4.0 + 1.6 * strictness,
+            b12_candidate=0.25 + 0.10 * strictness,
+            ratio_candidate=2.0 + 0.8 * strictness,
+            sensitivity=float(sensitivity),
+        )
 
 
 def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None, observation_valid=None):
@@ -178,7 +195,7 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
             component_labels[seeds], weights=seed_confidence, minlength=component_count
         )
         confidence_by_component = np.divide(
-            confidence_sum, seed_counts, out=np.zeros_like(confidence_sum), where=seed_counts > 0
+            confidence_sum, seed_counts, out=np.zeros(component_count, dtype=np.float32), where=seed_counts > 0
         )
         context_supported_seed_count = np.bincount(
             component_labels[seeds], weights=(context_votes[seeds] > 0).astype(np.float32),
@@ -186,21 +203,21 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         )
         context_support_by_component = np.divide(
             context_supported_seed_count, seed_counts,
-            out=np.zeros_like(context_supported_seed_count), where=seed_counts > 0
+            out=np.zeros(component_count, dtype=np.float32), where=seed_counts > 0
         )
         context_consistency_sum = np.bincount(
             component_labels[seeds], weights=seed_context_consistency, minlength=component_count
         )
         context_scale_support_by_component = np.divide(
             context_consistency_sum, seed_counts,
-            out=np.zeros_like(context_consistency_sum), where=seed_counts > 0
+            out=np.zeros(component_count, dtype=np.float32), where=seed_counts > 0
         )
         uncertain_seed_count = np.bincount(
             component_labels[seeds], weights=uncertain[seeds].astype(np.float32), minlength=component_count
         )
         uncertain_seed_fraction_by_component = np.divide(
             uncertain_seed_count, seed_counts,
-            out=np.zeros_like(uncertain_seed_count), where=seed_counts > 0
+            out=np.zeros(component_count, dtype=np.float32), where=seed_counts > 0
         )
     else:
         confidence_by_component = None

@@ -467,6 +467,11 @@ input[type="checkbox"] {
   line-height: 1.6;
   margin: 10px 2px 18px;
 }
+.settings-pending {
+  border-left: 3px solid var(--brand-primary);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
 .setting-title {
   display: flex;
   align-items: center;
@@ -925,6 +930,7 @@ input[type="checkbox"] {
 .affected-pattern-layer,
 .contour-layer,
 .uncertainty-layer,
+.water-layer,
 .fire-raster-layer,
 .fire-pattern-layer,
 .fire-markers-layer {
@@ -1001,6 +1007,24 @@ input[type="checkbox"] {
   opacity: 1;
   filter: brightness(1.5);
 }
+.water-layer {
+  background: repeating-linear-gradient(
+    0deg,
+    #126bb3 0 2px,
+    #a6d8ff 2px 4px,
+    #126bb3 4px 6px,
+    transparent 6px 9px
+  );
+  opacity: 0.78;
+  mask-size: 100% 100%;
+  mask-mode: luminance;
+  mask-repeat: no-repeat;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.water-layer.is-highlighted {
+  opacity: 1;
+  filter: brightness(1.35);
+}
 .map-tooltip {
   position: absolute;
   z-index: 8;
@@ -1031,6 +1055,9 @@ input[type="checkbox"] {
 }
 .map-tooltip-uncertainty {
   border-color: #9feaf0;
+}
+.map-tooltip-water {
+  border-color: #6bb8ff;
 }
 .layer-toolbar {
   padding: 14px 15px;
@@ -1068,6 +1095,10 @@ input[type="checkbox"] {
     #036c7c 0 2px,
     transparent 2px 5px
   );
+}
+.water-swatch {
+  border: 1px solid #2267a6;
+  background: repeating-linear-gradient(0deg, #126bb3 0 2px, #a6d8ff 2px 4px);
 }
 .fire-red {
   background-color: #e3342f;

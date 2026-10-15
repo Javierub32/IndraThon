@@ -113,6 +113,7 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200, response.text)
                 result = response.json()
                 self.assertEqual(result['stats']['region_count'], 1)
+                self.assertIn('water', result['assets'])
                 for url in result['assets'].values():
                     self.assertEqual(self.client.get(url).status_code, 200)
                 mask = np.asarray(Image.open(io.BytesIO(self.client.get(result['assets']['labels']).content)))
@@ -140,10 +141,12 @@ class ApiTests(unittest.TestCase):
         files = {'image1': ('true.png', png(visible)), 'image2': ('swir.png', png(swir))}
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
             with patch.object(self.main, 'RESULTS', Path(directory)):
-                response = self.client.post('/api/process', files=files, data={'max_side':256, 'refine':'false', 'active_fire':'true', 'pixel_size_m':20})
+                response = self.client.post('/api/process', files=files, data={'max_side':256, 'refine':'false', 'active_fire':'true', 'active_fire_sensitivity':.6, 'pixel_size_m':20})
                 self.assertEqual(response.status_code, 200, response.text)
                 result = response.json()
                 self.assertEqual(result['active_fire']['stats']['hotspot_count'], 1)
+                self.assertEqual(result['active_fire']['config']['sensitivity'], .6)
+                self.assertLess(result['active_fire']['config']['b12_seed'], .35)
                 self.assertEqual(result['spatial_resolution']['original_pixel_m'], 20)
                 self.assertGreater(result['stats']['affected_area_hectares_estimated'], 0)
                 self.assertIn('checks', self.client.get(result['assets']['quality']).json())

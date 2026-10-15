@@ -8,7 +8,7 @@ import numpy as np
 from .features import extract_features, working_image
 from .geometry import clean_mask, extract_regions
 from .segmentation import SegmentationConfig, reconstruct, segment, thresholds
-from .active_fire import detect_active_fire, render_active_overlay
+from .active_fire import ActiveFireConfig, detect_active_fire, render_active_overlay
 from .quality import inspect_pair, complete_quality
 
 
@@ -52,7 +52,8 @@ def refine_boundary(mask, swir_rgb, true_rgb, config):
     return refined, swir, visible
 
 
-def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fire=False):
+def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fire=False,
+            active_fire_sensitivity=0.5):
     started = perf_counter()
     config = config or SegmentationConfig()
     if true_rgb is not None and swir_rgb.shape != true_rgb.shape:
@@ -75,18 +76,21 @@ def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fir
     if refined_swir is not None:
         swir, visible = refined_swir, refined_visible
         uncertain = np.zeros(mask.shape, dtype=bool)
+        water = np.zeros(mask.shape, dtype=bool)
         valid = np.any(swir > 3, axis=2) & np.any(visible > 3, axis=2)
         final_seeds = np.zeros(mask.shape, dtype=bool)
         high, _ = thresholds(config)
         for y in range(0, mask.shape[0], 384):
             f = extract_features(swir[y:y + 384], None if swir_only else visible[y:y + 384])
             uncertain[y:y + 384] = f["uncertain"]
+            water[y:y + 384] = f["water"]
             final_seeds[y:y + 384] = (f["score"] >= high) & f["valid"] & ~f["uncertain"] & f["seed_allowed"]
         mask = clean_mask(mask, valid, uncertain, config)
         active_uncertain = uncertain.copy()
         active_valid = valid.copy() & (not quality["uninformative"])
     else:
         uncertain, valid = features["uncertain"], features["valid"]
+        water = features["water"].copy()
         final_seeds = segmented["seeds"]
         active_uncertain = uncertain.copy()
         active_valid = valid.copy() & (not quality["uninformative"])
@@ -101,7 +105,9 @@ def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fir
     overlay = render_overlay(visible, mask, uncertain)
     if active_fire:
         fire = detect_active_fire(
-            swir, active_uncertain, (original_width, original_height), observation_valid=active_valid
+            swir, active_uncertain, (original_width, original_height),
+            config=ActiveFireConfig.from_sensitivity(active_fire_sensitivity),
+            observation_valid=active_valid
         )
         fire["overlay"] = render_active_overlay(overlay, fire["mask"])
         fire["labels"] = labels.copy()
@@ -138,6 +144,8 @@ def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fir
                                    "analysis_pixel_m_y": original_height / mask.shape[0] * config.pixel_size_m},
             "stats": {"affected_analysis_pixels": count, "affected_original_pixels_estimated": round(count * scale_area),
                       "uncertain_analysis_pixels": int(uncertain.sum()), "region_count": len(regions),
+                      "water_analysis_pixels": int(water.sum()),
+                      "water_percent": round(100 * water.sum() / mask.size, 3),
                       "affected_percent": round(100 * count / mask.size, 3),
                       "uncertain_percent": round(100 * uncertain.sum() / mask.size, 3),
                       "affected_observable_percent": round(100 * count / observable, 3) if observable else None,
@@ -146,7 +154,8 @@ def analyze(swir_rgb, true_rgb=None, config=None, original_size=None, active_fir
                       "affected_area_hectares_estimated": round(area_m2 / 10000, 3),
                       "perimeter_m_estimated": round(perimeter * config.pixel_size_m, 2),
                       "processing_ms": round((perf_counter() - started) * 1000)},
-            "warnings": warnings, "quality": quality, "mask": mask, "labels": labels, "uncertain": uncertain,
+            "warnings": warnings, "quality": quality, "mask": mask, "labels": labels,
+            "uncertain": uncertain, "water": water,
             "true_rgb": visible, "has_true_color": not swir_only,
             "input_mode": "swir_only" if swir_only else "paired",
             "swir_rgb": swir, "active_fire": fire,

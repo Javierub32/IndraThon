@@ -26,7 +26,7 @@ SCENES = {"niebla": ("Niebla", "Niebla · Huelva"),
           "la-mierla": ("La_Mierla", "La Mierla"),
           "madrid-avila": ("Madrid-Avila", "Madrid–Ávila")}
 ARTIFACTS = {"true-color.jpg", "swir.jpg", "overlay.jpg", "mask.png", "labels.png",
-             "uncertainty.png", "score.jpg", "seeds.png", "candidates.png", "grown.png",
+             "uncertainty.png", "water.png", "score.jpg", "seeds.png", "candidates.png", "grown.png",
              "cleaned.png", "regions.json", "metadata.json", "layers.png", "fire_overlay.jpg",
              "fire_layer.png", "fire_mask.png", "fire_seeds.png", "fire_candidates.png",
              "fire_grown.png", "fire_score.jpg", "active_labels.png", "hotspots.json",
@@ -56,6 +56,7 @@ def remove_result(directory):
 class AnalysisOptions(BaseModel):
     max_side: int = Field(default=1536, ge=256, le=3072)
     sensitivity: float = Field(default=0.5, ge=0, le=1)
+    active_fire_sensitivity: float = Field(default=0.5, ge=0, le=1)
     min_area_fraction: float = Field(default=0.00012, ge=0, le=0.02)
     closing_radius: int = Field(default=2, ge=0, le=8)
     refine: bool = True
@@ -105,8 +106,14 @@ def save_analysis(swir, visible, original_size, options, scene_name):
         raise HTTPException(409, "Hay otro análisis en curso. Vuelve a intentarlo al terminar.")
     directory = None
     try:
-        result = analyze(swir, visible, SegmentationConfig(**options.model_dump(exclude={"active_fire"})),
-                         original_size=original_size, active_fire=options.active_fire)
+        result = analyze(
+            swir,
+            visible,
+            SegmentationConfig(**options.model_dump(exclude={"active_fire", "active_fire_sensitivity"})),
+            original_size=original_size,
+            active_fire=options.active_fire,
+            active_fire_sensitivity=options.active_fire_sensitivity,
+        )
         RESULTS.mkdir(parents=True, exist_ok=True)
         existing = sorted((p for p in RESULTS.iterdir() if p.is_dir() and len(p.name) == 32
                            and all(c in "0123456789abcdef" for c in p.name)), key=lambda p: p.stat().st_mtime)
@@ -122,6 +129,7 @@ def save_analysis(swir, visible, original_size, options, scene_name):
         write_mask(directory / "mask.png", result["mask"] * 255)
         write_mask(directory / "labels.png", result["labels"])
         write_mask(directory / "uncertainty.png", result["uncertain"] * 255)
+        write_mask(directory / "water.png", result["water"] * 255)
         layers = np.zeros((*result["mask"].shape, 4), dtype=np.uint8)
         layers[result["mask"]] = [3, 108, 124, 255]
         from PIL import Image
@@ -227,13 +235,16 @@ async def upload_bytes(upload):
 @app.post("/api/process")
 async def process_images(image1: UploadFile | None = File(None), image2: UploadFile | None = File(None),
                          input_mode: str = Form("paired"),
-                         sensitivity: float = Form(0.5), max_side: int = Form(1536),
+                         sensitivity: float = Form(0.5), active_fire_sensitivity: float = Form(0.5),
+                         max_side: int = Form(1536),
                          refine: bool = Form(True), active_fire: bool = Form(False), pixel_size_m: float = Form(20.0)):
     with analysis_slot():
-        return await process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m, input_mode)
+        return await process_upload(image1, image2, sensitivity, active_fire_sensitivity, max_side,
+                                    refine, active_fire, pixel_size_m, input_mode)
 
 
-async def process_upload(image1, image2, sensitivity, max_side, refine, active_fire, pixel_size_m, input_mode="paired"):
+async def process_upload(image1, image2, sensitivity, active_fire_sensitivity, max_side, refine,
+                         active_fire, pixel_size_m, input_mode="paired"):
     try:
         if input_mode not in {"paired", "swir_only"}:
             raise ValueError("El modo de carga debe ser 'paired' o 'swir_only'.")
@@ -241,8 +252,9 @@ async def process_upload(image1, image2, sensitivity, max_side, refine, active_f
             raise ValueError("Selecciona una composición SWIR.")
         if input_mode == "paired" and image1 is None:
             raise ValueError("Selecciona True Color y SWIR, o cambia el modo a Solo SWIR.")
-        options = AnalysisOptions(sensitivity=sensitivity, max_side=max_side, refine=refine,
-                                  active_fire=active_fire, pixel_size_m=pixel_size_m)
+        options = AnalysisOptions(sensitivity=sensitivity, active_fire_sensitivity=active_fire_sensitivity,
+                                  max_side=max_side, refine=refine, active_fire=active_fire,
+                                  pixel_size_m=pixel_size_m)
         swir, size = await run_in_threadpool(read_rgb, await upload_bytes(image2))
         visible = None
         scene_name = "Imagen SWIR subida"

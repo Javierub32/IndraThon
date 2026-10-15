@@ -14,6 +14,29 @@ def working_image(rgb, max_side):
     return cv2.resize(rgb, size, interpolation=cv2.INTER_AREA) if scale < 1 else rgb.copy()
 
 
+def grow_water_regions(seeds, candidates, valid):
+    """Grow water candidates within components with substantial seed support."""
+    seeds = np.asarray(seeds, dtype=bool) & valid
+    candidates = np.asarray(candidates, dtype=bool) & valid
+    if not seeds.any() or not candidates.any():
+        return np.zeros_like(valid, dtype=bool)
+
+    # Close narrow gaps at shorelines before keeping only seed-supported regions.
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    connected_candidates = cv2.morphologyEx(candidates.astype(np.uint8), cv2.MORPH_CLOSE, kernel).astype(bool)
+    connected_candidates &= valid
+    connected_candidates |= seeds
+    count, labels = cv2.connectedComponents(connected_candidates.astype(np.uint8), connectivity=8)
+    component_sizes = np.bincount(labels.ravel(), minlength=count)
+    seed_counts = np.bincount(labels[seeds].ravel(), minlength=count)
+    # Requiring a meaningful share of strong water pixels avoids growing a
+    # handful of accidental matches across large dark areas such as burn scars.
+    required_support = np.maximum(12, np.ceil(component_sizes * 0.15).astype(np.int64))
+    supported = seed_counts >= required_support
+    supported[0] = False
+    return supported[labels]
+
+
 def extract_features(swir_rgb, true_rgb=None):
     rgb = swir_rgb.astype(np.float32) / 255.0
     red, green, blue = cv2.split(rgb)
@@ -39,8 +62,25 @@ def extract_features(swir_rgb, true_rgb=None):
     else:
         visible_hsv = cv2.cvtColor(true_rgb.astype(np.float32) / 255, cv2.COLOR_RGB2HSV)
         visible = true_rgb.astype(np.float32) / 255
-        # Only exclude strong, cross-composite evidence of these backgrounds.
-        water = (visible[:, :, 2] > 1.25 * visible[:, :, 0]) & (visible_hsv[:, :, 2] < .55) & (hsv[:, :, 2] < .25)
+        # Rendered water may be teal or nearly neutral in true color, so blue
+        # channel dominance alone misses real reservoirs. Use strong darkness
+        # in SWIR relative to the paired visible image as a second seed signal.
+        visible_value = visible_hsv[:, :, 2]
+        swir_value = hsv[:, :, 2]
+        swir_visible_ratio = swir_value / np.maximum(visible_value, .03)
+        blue_water_seeds = ((visible[:, :, 2] > 1.25 * visible[:, :, 0]) &
+                            (visible_value < .55) & (swir_value < .25))
+        spectral_water_seeds = ((swir_value < .32) & (visible_value < .75) &
+                                (swir_visible_ratio < .55))
+        water_seeds = (blue_water_seeds | spectral_water_seeds) & valid
+
+        blue_water_candidates = ((visible[:, :, 2] > 1.08 * visible[:, :, 0]) &
+                                 (visible[:, :, 2] > .90 * visible[:, :, 1]) &
+                                 (visible_value < .70) & (swir_value < .40))
+        spectral_water_candidates = ((swir_value < .48) & (visible_value < .85) &
+                                     (swir_visible_ratio < .85))
+        water_candidates = (blue_water_candidates | spectral_water_candidates) & valid
+        water = grow_water_regions(water_seeds, water_candidates, valid)
         vegetation = (visible[:, :, 1] > 1.15 * visible[:, :, 0]) & (green > 1.15 * red)
         score[water | vegetation] = 0
         visible_rg = (visible[:, :, 0] - visible[:, :, 1]) / (visible[:, :, 0] + visible[:, :, 1] + 1e-6)

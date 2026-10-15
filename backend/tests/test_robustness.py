@@ -19,6 +19,66 @@ from processing.segmentation import segment
 
 
 class RobustnessTests(unittest.TestCase):
+    def test_water_layer_is_available_only_with_true_color(self):
+        swir = np.full((128, 128, 3), [80, 100, 50], np.uint8)
+        visible = np.full_like(swir, [90, 110, 80])
+        # A clear-water core seeds a wider, slightly hazier shoreline.
+        swir[30:70, 40:90] = [90, 100, 70]
+        visible[30:70, 40:90] = [45, 55, 80]
+        swir[40:60, 50:80] = [20, 25, 20]
+        visible[40:60, 50:80] = [20, 30, 80]
+        # A disconnected shadow-colored region has no clear-water seed.
+        swir[90:108, 8:26] = [90, 100, 70]
+        visible[90:108, 8:26] = [45, 55, 80]
+        # A neutral/teal reservoir needs the paired SWIR darkness signal;
+        # its shoreline is brighter than the clear-water core.
+        swir[10:34, 95:124] = [55, 65, 52]
+        visible[10:34, 95:124] = [88, 94, 82]
+        swir[15:30, 102:118] = [20, 30, 28]
+        visible[15:30, 102:118] = [80, 86, 78]
+        config = SegmentationConfig(max_side=256, refine=False)
+
+        paired = analyze(swir, visible, config)
+        self.assertTrue(paired['water'][32:68, 42:88].all())
+        self.assertTrue(paired['water'][11:14, 98:101].all())
+        self.assertFalse(paired['water'][95:103, 12:22].any())
+        self.assertGreater(paired['stats']['water_percent'], 0)
+
+        swir_only = analyze(swir, None, config)
+        self.assertFalse(swir_only['water'].any())
+        self.assertEqual(swir_only['stats']['water_percent'], 0)
+
+    def test_active_fire_sensitivity_adjusts_its_own_thresholds(self):
+        low = ActiveFireConfig.from_sensitivity(0)
+        default = ActiveFireConfig.from_sensitivity(.5)
+        high = ActiveFireConfig.from_sensitivity(1)
+        self.assertEqual(default.b12_seed, ActiveFireConfig().b12_seed)
+        self.assertEqual(default.ratio_seed, ActiveFireConfig().ratio_seed)
+        self.assertGreater(low.b12_seed, default.b12_seed)
+        self.assertGreater(low.ratio_seed, default.ratio_seed)
+        self.assertLess(high.b12_seed, default.b12_seed)
+        self.assertLess(high.ratio_seed, default.ratio_seed)
+
+        # A moderate red anomaly is retained only when the active-fire control
+        # is permissive; unrelated area segmentation remains independently tuned.
+        swir = np.full((128, 128, 3), [80, 70, 50], np.uint8)
+        swir[58:70, 58:70] = [160, 80, 40]
+        conservative = detect_active_fire(swir, config=low)
+        permissive = detect_active_fire(swir, config=high)
+        self.assertFalse(conservative['mask'].any())
+        self.assertTrue(permissive['mask'].any())
+
+    def test_pipeline_exposes_separate_active_fire_sensitivity(self):
+        swir = np.full((128, 128, 3), [80, 70, 50], np.uint8)
+        swir[58:70, 58:70] = [160, 80, 40]
+        visible = np.full_like(swir, [80, 110, 60])
+        config = SegmentationConfig(max_side=256, refine=False, sensitivity=.5)
+        conservative = analyze(swir, visible, config, active_fire=True, active_fire_sensitivity=0)
+        permissive = analyze(swir, visible, config, active_fire=True, active_fire_sensitivity=1)
+        np.testing.assert_array_equal(conservative['mask'], permissive['mask'])
+        self.assertFalse(conservative['active_fire']['mask'].any())
+        self.assertTrue(permissive['active_fire']['mask'].any())
+
     def test_uncertain_barrier_blocks_reconstruction(self):
         score = np.full((64, 64), .5, np.float32)
         score[10:15, 10:15] = .9

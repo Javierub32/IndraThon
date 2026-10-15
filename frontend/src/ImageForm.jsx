@@ -150,6 +150,7 @@ function ResultViewer({
   const [showFire, setShowFire] = useState(Boolean(result.active_fire?.enabled));
   const [perimeter, setPerimeter] = useState(true);
   const [uncertain, setUncertain] = useState(false);
+  const [showWater, setShowWater] = useState(false);
   const [opacity, setOpacity] = useState(38);
   const [zoom, setZoom] = useState(100);
   const [isPanning, setIsPanning] = useState(false);
@@ -179,20 +180,21 @@ function ResultViewer({
     anchor.viewport.scrollLeft = Math.max(0, anchor.contentX * scale - anchor.x);
     anchor.viewport.scrollTop = Math.max(0, anchor.contentY * scale - anchor.y);
   }, [zoom]);
-  const maskCacheKey = `${result.assets.mask}|${result.assets.uncertainty}|${fire?.enabled ? result.assets.fire_mask : ''}`;
+  const maskCacheKey = `${result.assets.mask}|${result.assets.uncertainty}|${result.assets.water}|${fire?.enabled ? result.assets.fire_mask : ''}`;
   useEffect(() => {
     let active = true;
     Promise.all([
       loadMaskPixels(result.assets.mask),
       loadMaskPixels(result.assets.uncertainty),
+      loadMaskPixels(result.assets.water),
       loadMaskPixels(fire?.enabled ? result.assets.fire_mask : null)
-    ]).then(([affected, uncertaintyMask, fireMask]) => {
-      if (active) setMaskCache({ key: maskCacheKey, pixels: { affected, uncertainty: uncertaintyMask, fire: fireMask } });
+    ]).then(([affected, uncertaintyMask, waterMask, fireMask]) => {
+      if (active) setMaskCache({ key: maskCacheKey, pixels: { affected, uncertainty: uncertaintyMask, water: waterMask, fire: fireMask } });
     });
     return () => {
       active = false;
     };
-  }, [maskCacheKey, result.assets.mask, result.assets.uncertainty, result.assets.fire_mask, fire?.enabled]);
+  }, [maskCacheKey, result.assets.mask, result.assets.uncertainty, result.assets.water, result.assets.fire_mask, fire?.enabled]);
   useEffect(() => {
     const viewport = imageViewportRef.current;
     if (!viewport) return undefined;
@@ -233,7 +235,7 @@ function ResultViewer({
   }, []);
   const maskPixels = maskCache?.key === maskCacheKey ? maskCache.pixels : null;
   const visibleSteps = fire?.enabled ? [...steps, ...activeFireSteps] : steps;
-  const downloads = [['overlay', 'Superposición de cicatriz JPG', 'jpg'], ['mask', 'Máscara binaria PNG', 'png'], ['labels', 'Etiquetas 0 / 1 / 255 PNG', 'png'], ['regions', 'Perímetros JSON', 'json'], ['metadata', 'Análisis y parámetros', 'json'], ['quality', 'Comprobaciones de calidad', 'json']];
+  const downloads = [['overlay', 'Superposición de cicatriz JPG', 'jpg'], ['mask', 'Máscara binaria PNG', 'png'], ['water', 'Máscara de agua estimada PNG', 'png'], ['labels', 'Etiquetas 0 / 1 / 255 PNG', 'png'], ['regions', 'Perímetros JSON', 'json'], ['metadata', 'Análisis y parámetros', 'json'], ['quality', 'Comprobaciones de calidad', 'json']];
   if (fire?.enabled) downloads.splice(1, 0, ['fire_overlay', 'Superposición de focos JPG', 'jpg'], ['fire_mask', 'Máscara de focos PNG', 'png'], ['active_labels', 'Etiquetas 0 / 1 / 2 / 255 PNG', 'png'], ['hotspots', 'Coordenadas de focos JSON', 'json']);
   function updateZoom(nextZoom) {
     const boundedZoom = Math.min(300, Math.max(100, nextZoom));
@@ -295,6 +297,7 @@ function ResultViewer({
     if (targetType === 'perimeter' && perimeter) type = 'perimeter';
     else if (targetType === 'fire' && showFire && fire?.enabled) type = 'fire';
     else if (showFire && fire?.enabled && maskHasPixel(maskPixels?.fire, xRatio, yRatio)) type = 'fire';
+    else if (hasTrueColor && showWater && maskHasPixel(maskPixels?.water, xRatio, yRatio)) type = 'water';
     else if (uncertain && maskHasPixel(maskPixels?.uncertainty, xRatio, yRatio)) type = 'uncertainty';
     else if (segmentation && maskHasPixel(maskPixels?.affected, xRatio, yRatio)) type = 'affected';
     else if (targetType === 'affected' && segmentation) type = 'affected';
@@ -321,6 +324,9 @@ function ResultViewer({
     } else if (type === 'uncertainty') {
       label = 'Área de incertidumbre';
       detail = `${number(result.stats.uncertain_percent)}% de la escena · revisar por humo, nube o falta de datos`;
+    } else if (type === 'water') {
+      label = 'Agua estimada';
+      detail = `${number(result.stats.water_percent)}% de la escena · detección visual aproximada en Color natural`;
     } else {
       label = hotspot ? `Posible fuego activo · Foco ${hotspot.id}` : 'Posible fuego activo';
       detail = hotspot
@@ -398,6 +404,12 @@ function ResultViewer({
             WebkitMaskSize: '100% 100%',
             WebkitMaskRepeat: 'no-repeat'
           }} />}
+          {hasTrueColor && showWater && <div className={`water-layer ${hoveredFeature?.type === 'water' ? 'is-highlighted' : ''}`} style={{
+            maskImage: `url(${result.assets.water})`,
+            WebkitMaskImage: `url(${result.assets.water})`,
+            WebkitMaskSize: '100% 100%',
+            WebkitMaskRepeat: 'no-repeat'
+          }} />}
           {fire?.enabled && showFire && <img className={`fire-raster-layer ${hoveredFeature?.type === 'fire' ? 'is-highlighted' : ''}`} src={result.assets.fire_layer} alt="" />}
           {fire?.enabled && showFire && <div className={`fire-pattern-layer ${hoveredFeature?.type === 'fire' ? 'is-highlighted' : ''}`} style={{
             maskImage: `url(${result.assets.fire_mask})`,
@@ -423,6 +435,9 @@ function ResultViewer({
         <label>
 <input type="checkbox" checked={uncertain} onChange={e => setUncertain(e.target.checked)} />
 <i className="legend-swatch uncertainty-swatch" />Área de incertidumbre</label>
+        <label title={hasTrueColor ? 'Estimación visual aproximada; puede incluir sombras u otras superficies oscuras.' : 'La detección de agua requiere una imagen True Color.'}>
+<input type="checkbox" checked={showWater} disabled={!hasTrueColor} onChange={e => setShowWater(e.target.checked)} />
+<i className="legend-swatch water-swatch" />{hasTrueColor ? `Agua estimada · ${number(result.stats.water_percent)}%` : 'Agua estimada · requiere True Color'}</label>
         {fire?.enabled && <label className="fire-layer-toggle">
 <input type="checkbox" checked={showFire} onChange={e => setShowFire(e.target.checked)} />
 <i className="legend-swatch fire-red" />Posible fuego activo · {number(fire.stats.hotspot_count)}</label>}
@@ -499,7 +514,7 @@ function ResultViewer({
     <details className="method-notes">
 <summary>Alcance del método y parámetros utilizados</summary>
 <ul>{result.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
-<p>Algoritmo: {result.algorithm}. Sensibilidad: {result.config.sensitivity}. Umbral de semillas: {(0.64 + (0.5 - result.config.sensitivity) * 0.24).toFixed(2)}. Resolución inicial: {result.coarse_size.width} × {result.coarse_size.height}. Refinamiento: {result.config.refine ? 'activado' : 'desactivado'}. La puntuación de color no expresa una probabilidad calibrada ni una validación independiente.</p>
+<p>Algoritmo: {result.algorithm}. Sensibilidad del área afectada: {result.config.sensitivity}. Umbral de semillas: {(0.64 + (0.5 - result.config.sensitivity) * 0.24).toFixed(2)}. Sensibilidad de focos activos: {result.active_fire?.config?.sensitivity ?? 'no aplicada'}. Resolución inicial: {result.coarse_size.width} × {result.coarse_size.height}. Refinamiento: {result.config.refine ? 'activado' : 'desactivado'}. La puntuación de color no expresa una probabilidad calibrada ni una validación independiente.</p>
 </details>
   </>;
 }
@@ -514,6 +529,7 @@ export default function ImageForm() {
   const [previewSlide, setPreviewSlide] = useState(0);
   const [previewDragActive, setPreviewDragActive] = useState(false);
   const [sensitivity, setSensitivity] = useState(50);
+  const [activeFireSensitivity, setActiveFireSensitivity] = useState(50);
   const [resolution, setResolution] = useState(1536);
   const [refine, setRefine] = useState(true);
   const [pixelSize, setPixelSize] = useState(20);
@@ -526,6 +542,13 @@ export default function ImageForm() {
   const accessibilityMenuRef = useRef(null);
   const accessibilityButtonRef = useRef(null);
   const [accessibility, setAccessibility] = useState(loadAccessibilitySettings);
+  const settingsChanged = Boolean(result && (
+    result.config.sensitivity !== sensitivity / 100 ||
+    (result.active_fire?.config?.sensitivity ?? 50) !== activeFireSensitivity / 100 ||
+    result.config.max_side !== resolution ||
+    result.config.refine !== refine ||
+    result.config.pixel_size_m !== Number(pixelSize)
+  ));
   useEffect(() => {
     const previews = {
       trueColor: trueFile ? URL.createObjectURL(trueFile) : null,
@@ -602,6 +625,7 @@ export default function ImageForm() {
         },
         body: JSON.stringify({
           sensitivity: sensitivity / 100,
+          active_fire_sensitivity: activeFireSensitivity / 100,
           max_side: resolution,
           refine,
           pixel_size_m: pixelSize,
@@ -613,6 +637,7 @@ export default function ImageForm() {
         form.append('image2', swirFile);
         form.append('input_mode', uploadMode);
         form.append('sensitivity', sensitivity / 100);
+        form.append('active_fire_sensitivity', activeFireSensitivity / 100);
         form.append('max_side', resolution);
         form.append('refine', refine);
         form.append('pixel_size_m', pixelSize);
@@ -826,23 +851,32 @@ export default function ImageForm() {
 </div>
 <p className="analysis-hint">El análisis estima el área afectada y señala posibles focos. Podrás revisar cada resultado por separado.</p>
 <div className="setting-title">
-<h2>Ajustes de imagen</h2>
+<h2>Parámetros del análisis</h2>
 <span>OPCIONAL</span>
 </div>
-<label className="slider-label" htmlFor="sensitivity">Sensibilidad de detección <strong>{sensitivity}%</strong>
+<label className="slider-label" htmlFor="sensitivity">Sensibilidad del área afectada <strong>{sensitivity}%</strong>
 </label>
 <input id="sensitivity" className="wide-range" type="range" min="0" max="100" value={sensitivity} aria-valuetext={`${sensitivity}% de sensibilidad`} aria-describedby="sensitivity-range-help" onChange={e => setSensitivity(Number(e.target.value))} />
 <div className="range-labels">
-<span>Menos resultados</span>
-<span>Más resultados</span>
+<span>Menos superficie</span>
+<span>Más superficie</span>
 </div>
-<span id="sensitivity-range-help" className="visually-hidden">Un valor bajo prioriza menos resultados; un valor alto muestra más resultados candidatos.</span>
-<label className="select-label" htmlFor="resolution">Nivel de detalle<select id="resolution" value={resolution} onChange={e => setResolution(Number(e.target.value))}>
+<span id="sensitivity-range-help" className="visually-hidden">Un valor bajo reduce las zonas clasificadas como posiblemente afectadas; un valor alto las amplía. Este ajuste es independiente de la sensibilidad de focos activos.</span>
+<label className="slider-label" htmlFor="active-fire-sensitivity">Sensibilidad de posibles focos activos <strong>{activeFireSensitivity}%</strong>
+</label>
+<input id="active-fire-sensitivity" className="wide-range" type="range" min="0" max="100" value={activeFireSensitivity} aria-valuetext={`${activeFireSensitivity}% de sensibilidad para posibles focos activos`} aria-describedby="active-fire-sensitivity-help" onChange={e => setActiveFireSensitivity(Number(e.target.value))} />
+<div className="range-labels">
+<span>Menos focos</span>
+<span>Más focos</span>
+</div>
+<span id="active-fire-sensitivity-help" className="visually-hidden">Ajusta por separado los umbrales de posibles focos activos. Un valor alto permite señales más débiles y puede incluir más candidatos para revisar.</span>
+<label className="select-label" htmlFor="resolution">Nivel de detalle<select id="resolution" value={resolution} aria-describedby="resolution-help" onChange={e => setResolution(Number(e.target.value))}>
 <option value="1024">1024 px · rápida</option>
 <option value="1536">1536 px · equilibrada</option>
 <option value="2048">2048 px · detallada</option>
 </select>
 </label>
+<p className="analysis-hint" id="resolution-help">Es el máximo de píxeles por lado usado en el análisis; no añade detalle que no esté en la imagen original.</p>
 <label className="select-label" htmlFor="pixel-size">Tamaño del píxel original en metros<input id="pixel-size" aria-describedby="pixel-size-help" type="number" min="0.01" max="10000" step="any" required value={pixelSize} onChange={e => setPixelSize(e.target.value === '' ? '' : Number(e.target.value))} /></label>
 <p className="analysis-hint" id="pixel-size-help">Sentinel-2 suele ofrecer 20 m por píxel en SWIR. Ajusta el valor si la imagen se ha remuestreado.</p>
 <label className="refine-option">
@@ -851,10 +885,11 @@ export default function ImageForm() {
 </span>
 </label>
 </div>
+{settingsChanged && <p className="analysis-hint settings-pending" role="status">Has cambiado los parámetros. Pulsa «Actualizar análisis» para regenerar las gráficas con estos valores.</p>}
 </fieldset>
 </form>
 <button className="analyze-button sidebar-analyze-button" type="submit" form="analysis-form" aria-describedby="sidebar-analysis-form-help" disabled={busy || mode === 'scenes' && !scenes.length}>
-{busy ? <><span className="spinner" aria-hidden="true" />Analizando escena · {elapsed} s</> : <>Analizar escena<span aria-hidden="true">↗</span></>}
+{busy ? <><span className="spinner" aria-hidden="true" />Analizando escena · {elapsed} s</> : <>{settingsChanged ? 'Actualizar análisis' : 'Analizar escena'}<span aria-hidden="true">↗</span></>}
 </button>
 <span id="sidebar-analysis-form-help" className="visually-hidden">Ejecuta el análisis con la escena seleccionada o con las imágenes True Color y SWIR cargadas.</span>
 <div className="sidebar-foot">
