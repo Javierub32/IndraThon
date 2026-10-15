@@ -271,13 +271,7 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
             "uncertain_seed_pixels": int((seeds & uncertain).sum()),
             "uncertainty_rescued_hotspots": int((keep & uncertainty_rescued_by_output).sum()),
         },
-        "warnings": [
-            "Umbrales aproximados del SWIR-rule del paper; su referencia usa reflectancias antes del render, aquí se invierten los límites publicados sobre un JPEG cuantizado y con pérdida.",
-            "La regla usa brillo y contraste R/B del render; el JPEG no permite verificar el orden de bandas ni recuperar reflectancias. Las equivalencias B12/B8A son solo la hipótesis de render del paper.",
-            "El filtro contextual comprueba contraste con el fondo observable en varias escalas. Bajo incertidumbre visual, solo rescata componentes sin contexto si su margen espectral es alto.",
-            "confidence_score y context_scale_support son puntuaciones heurísticas del componente, no probabilidades calibradas.",
-            "Los puntos son candidatos compatibles con fuego activo, no temperatura medida ni confirmación de incendio.",
-        ],
+        "warnings": [],
     }
 
 

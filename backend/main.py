@@ -141,7 +141,7 @@ def save_analysis(swir, visible, original_size, options, scene_name):
             write_rgb(directory / "fire_score.jpg", colored_score(fire["score"]))
             write_mask(directory / "active_labels.png", fire["labels"])
             fire_layer = np.zeros((*fire["mask"].shape, 4), dtype=np.uint8)
-            fire_layer[fire["mask"]] = [255, 187, 33, 255]
+            fire_layer[fire["mask"]] = [227, 52, 47, 255]
             Image.fromarray(fire_layer).save(directory / "fire_layer.png")
             fire_geometry = {"coordinate_system": "image_pixels", "original_size": result["original_size"],
                              "analysis_size": result["analysis_size"], "hotspots": fire["hotspots"]}
