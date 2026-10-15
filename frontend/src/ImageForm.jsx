@@ -1,4 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+const ACCESSIBILITY_STORAGE_KEY = 'brasa.accessibility';
+const DEFAULT_ACCESSIBILITY = {
+  fontSize: 100,
+  fontFamily: 'indra',
+  theme: 'light'
+};
+const ACCESSIBLE_FONTS = ['indra', 'arial', 'verdana', 'georgia'];
 const number = value => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 1
 }).format(value);
@@ -12,6 +19,19 @@ async function request(url, options) {
     throw new Error(detail);
   }
   return data;
+}
+function loadAccessibilitySettings() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(ACCESSIBILITY_STORAGE_KEY) || '{}');
+    const fontSize = Number(saved.fontSize);
+    return {
+      fontSize: Number.isFinite(fontSize) ? Math.min(160, Math.max(100, fontSize)) : DEFAULT_ACCESSIBILITY.fontSize,
+      fontFamily: ACCESSIBLE_FONTS.includes(saved.fontFamily) ? saved.fontFamily : DEFAULT_ACCESSIBILITY.fontFamily,
+      theme: saved.theme === 'dark' ? 'dark' : DEFAULT_ACCESSIBILITY.theme
+    };
+  } catch {
+    return DEFAULT_ACCESSIBILITY;
+  }
 }
 function Contours({
   result,
@@ -223,6 +243,40 @@ export default function ImageForm() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const accessibilityMenuRef = useRef(null);
+  const accessibilityButtonRef = useRef(null);
+  const [accessibility, setAccessibility] = useState(loadAccessibilitySettings);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACCESSIBILITY_STORAGE_KEY, JSON.stringify(accessibility));
+    } catch {
+      // La página sigue siendo utilizable aunque el navegador no permita guardar preferencias.
+    }
+  }, [accessibility]);
+  useEffect(() => {
+    if (!accessibilityOpen) return;
+    const closeFromOutside = event => {
+      if (!accessibilityMenuRef.current?.contains(event.target)) setAccessibilityOpen(false);
+    };
+    const closeFromKeyboard = event => {
+      if (event.key === 'Escape') {
+        setAccessibilityOpen(false);
+        accessibilityButtonRef.current?.focus();
+      }
+    };
+    const closeFromFocus = event => {
+      if (!accessibilityMenuRef.current?.contains(event.target)) setAccessibilityOpen(false);
+    };
+    document.addEventListener('pointerdown', closeFromOutside);
+    document.addEventListener('keydown', closeFromKeyboard);
+    document.addEventListener('focusin', closeFromFocus);
+    return () => {
+      document.removeEventListener('pointerdown', closeFromOutside);
+      document.removeEventListener('keydown', closeFromKeyboard);
+      document.removeEventListener('focusin', closeFromFocus);
+    };
+  }, [accessibilityOpen]);
   useEffect(() => {
     const controller = new AbortController();
     request('/api/scenes', {
@@ -293,15 +347,71 @@ export default function ImageForm() {
     setError('');
   }
   const selectedScene = scenes.find(scene => scene.id === sceneId);
-  return <div className="app-shell">
+  const textScale = accessibility.fontSize / 100;
+  const accessibilityClasses = `theme-${accessibility.theme} font-${accessibility.fontFamily}`;
+  const scaledFontSizes = Object.fromEntries(
+    [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 20, 23, 27, 28, 29, 30, 34, 39]
+      .map(size => [`--font-size-${size}`, `${size * textScale}px`])
+  );
+  const accessibilityStyles = {
+    ...scaledFontSizes,
+    '--font-small': `${12 * textScale}px`,
+    '--font-body': `${12 * textScale}px`,
+    '--font-sidebar-heading': `${29 * textScale}px`,
+    '--font-sidebar-heading-mobile': `${27 * textScale}px`,
+    '--font-welcome-heading': `clamp(${34 * textScale}px, ${3.7 * textScale}vw, ${58 * textScale}px)`,
+    '--font-welcome-heading-mobile': `${39 * textScale}px`,
+    '--font-result-heading': `${34 * textScale}px`,
+    '--font-result-heading-mobile': `${30 * textScale}px`,
+    '--font-section-heading': `${13 * textScale}px`,
+    '--font-popover-heading': `${26 * textScale}px`,
+    '--font-setting-heading': `${13 * textScale}px`,
+    '--font-setting-hint': `${11 * textScale}px`
+  };
+  return <div className={`app-shell ${accessibilityClasses}`} style={accessibilityStyles}>
     <a className="skip-link" href="#main-content">Saltar al contenido principal</a>
     <header className="topbar">
 <a className="brand" href="/" aria-label="Brasa, inicio">
 <span className="brand-mark">◒</span>brasa<span className="brand-dot">.</span>
 </a>
 <div className="topbar-title">INDRA ESPACIO <span>/</span> OBSERVACIÓN SATELITAL</div>
+<div className="topbar-actions">
 <span className={`connection ${connected ? 'online' : ''}`} role="status" aria-live="polite">
 <i aria-hidden="true" />{connected ? 'Servicio disponible' : error ? 'Servicio no disponible' : 'Conectando con el servicio'}</span>
+<div className="accessibility-control" ref={accessibilityMenuRef}>
+<button ref={accessibilityButtonRef} className="accessibility-trigger" type="button" aria-label="Opciones de accesibilidad" aria-haspopup="dialog" aria-expanded={accessibilityOpen} aria-controls={accessibilityOpen ? 'accessibility-panel' : undefined} onClick={() => setAccessibilityOpen(open => !open)}>
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="4" r="2" /><path d="m4 9 8-2 8 2M12 7v7m0 0-4 8m4-8 4 8" /></svg>
+</button>
+{accessibilityOpen && <div className="accessibility-popover" id="accessibility-panel" role="dialog" aria-labelledby="accessibility-title">
+<div className="accessibility-popover-heading">
+<div><span className="eyebrow">PERSONALIZA TU EXPERIENCIA</span><h2 id="accessibility-title">Accesibilidad</h2></div>
+<button className="accessibility-close" type="button" aria-label="Cerrar opciones de accesibilidad" onClick={() => { setAccessibilityOpen(false); accessibilityButtonRef.current?.focus(); }}>×</button>
+</div>
+<label className="accessibility-setting" htmlFor="accessibility-font-size">
+<span className="accessibility-setting-title"><span>Tamaño del texto</span><output aria-hidden="true" htmlFor="accessibility-font-size">{accessibility.fontSize}%</output></span>
+<input id="accessibility-font-size" className="accessibility-range" type="range" min="100" max="160" step="10" value={accessibility.fontSize} aria-valuetext={`${accessibility.fontSize}%`} onChange={event => setAccessibility(value => ({ ...value, fontSize: Number(event.target.value) }))} />
+<span className="range-endpoints" aria-hidden="true"><span>A</span><span className="large-a">A</span></span>
+</label>
+<label className="accessibility-setting" htmlFor="accessibility-font-family">
+<span className="accessibility-setting-title"><span>Tipo de letra</span><span className="setting-hint">Elige la que te resulte más cómoda</span></span>
+<select id="accessibility-font-family" value={accessibility.fontFamily} onChange={event => setAccessibility(value => ({ ...value, fontFamily: event.target.value }))}>
+<option value="indra">Neo Sans · Indra</option>
+<option value="arial">Arial</option>
+<option value="verdana">Verdana</option>
+<option value="georgia">Georgia</option>
+</select>
+</label>
+<div className="accessibility-setting theme-setting">
+<span className="accessibility-setting-title"><span>Tema de pantalla</span><span className="setting-hint">{accessibility.theme === 'dark' ? 'Modo oscuro' : 'Modo claro'}</span></span>
+<div className="theme-choice">
+<span aria-hidden="true">☀</span>
+<button className="theme-switch" type="button" role="switch" aria-checked={accessibility.theme === 'dark'} aria-label="Tema oscuro" onClick={() => setAccessibility(value => ({ ...value, theme: value.theme === 'dark' ? 'light' : 'dark' }))}><span /></button>
+<span aria-hidden="true">☾</span>
+</div>
+</div>
+</div>}
+</div>
+</div>
 </header>
     <aside className="sidebar" aria-label="Selección y parámetros del análisis">
 <div className="sidebar-intro">

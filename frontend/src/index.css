@@ -5,7 +5,7 @@
   background: #E8E8E8;
   font-synthesis: none;
   font-weight: 400;
-  font-size: 16px;
+  font-size: var(--font-size-16, 16px);
   --ink: #004254;
   --muted: #365F68;
   --brand-primary: #004254;
@@ -57,7 +57,8 @@ input[type=checkbox] {
 .app-shell {
   display: grid;
   grid-template-columns: 330px minmax(0,1fr);
-  grid-template-rows: 76px minmax(calc(100vh - 76px),auto)
+  grid-template-rows: 76px minmax(calc(100vh - 76px),auto);
+  font-size: var(--font-size-16, 16px)
 }
 .topbar {
   grid-column: 1/-1;
@@ -70,7 +71,7 @@ input[type=checkbox] {
   gap: 20px
 }
 .brand {
-  font-size: 34px;
+  font-size: var(--font-size-34, 34px);
   font-weight: 750;
   letter-spacing: -2px;
   display: flex;
@@ -79,7 +80,7 @@ input[type=checkbox] {
 }
 .brand-mark {
   color: var(--brand-primary);
-  font-size: 39px;
+  font-size: var(--font-size-39, 39px);
   margin-right: 10px;
   display: inline-block;
   transform: rotate(-35deg)
@@ -88,7 +89,7 @@ input[type=checkbox] {
   color: var(--brand-accent)
 }
 .topbar-title {
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   letter-spacing: 1.7px;
   color: #31565F
 }
@@ -100,8 +101,165 @@ input[type=checkbox] {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   color: var(--muted)
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px
+}
+.accessibility-control {
+  position: relative;
+  flex: 0 0 auto
+}
+.accessibility-trigger,
+.accessibility-close {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #FFFFFF;
+  color: var(--brand-primary);
+  border-radius: 50%;
+  width: 42px;
+  height: 42px
+}
+.accessibility-trigger:hover,
+.accessibility-close:hover {
+  background: #F1F6F6
+}
+.accessibility-trigger svg {
+  width: 24px;
+  height: 24px
+}
+.accessibility-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 13px);
+  right: 0;
+  width: min(370px, calc(100vw - 32px));
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: var(--ink);
+  box-shadow: 0 18px 48px #002B3630;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto
+}
+.accessibility-popover-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line)
+}
+.accessibility-popover-heading .eyebrow {
+  font-size: var(--font-size-9, 9px)
+}
+.accessibility-popover-heading h2 {
+  margin: 5px 0 0;
+  font-family: "Noe Display", "Times New Roman", serif;
+  font-size: var(--font-popover-heading, 26px);
+  font-weight: 400
+}
+.accessibility-close {
+  width: 34px;
+  height: 34px;
+  font-size: var(--font-size-23, 23px);
+  line-height: 1
+}
+.accessibility-setting {
+  display: block;
+  margin-top: 18px;
+  color: var(--ink)
+}
+.accessibility-setting-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: var(--font-setting-heading, 13px);
+  font-weight: 650
+}
+.accessibility-setting-title output {
+  color: var(--brand-secondary);
+  font-variant-numeric: tabular-nums
+}
+.accessibility-setting .setting-hint {
+  color: var(--muted);
+  font-size: var(--font-setting-hint, 11px);
+  font-weight: 400;
+  text-align: right
+}
+.accessibility-range {
+  width: 100%;
+  margin: 4px 0 0;
+  accent-color: var(--brand-secondary)
+}
+.range-endpoints {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--muted);
+  line-height: 1;
+  margin-top: 4px
+}
+.range-endpoints .large-a {
+  font-size: var(--font-size-20, 20px)
+}
+.accessibility-setting select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: var(--ink)
+}
+.theme-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px
+}
+.theme-setting .accessibility-setting-title {
+  display: grid;
+  gap: 3px;
+  margin: 0
+}
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--font-size-17, 17px)
+}
+.theme-switch {
+  width: 48px;
+  height: 28px;
+  padding: 3px;
+  border: 0;
+  border-radius: 20px;
+  background: #A9B9BC;
+  transition: background .2s ease
+}
+.theme-switch[aria-checked="true"] {
+  background: var(--brand-secondary)
+}
+.theme-switch span {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px #00000030;
+  transition: transform .2s ease
+}
+.theme-switch[aria-checked="true"] span {
+  transform: translateX(20px)
 }
 .connection i,.result-badge>span {
   width: 6px;
@@ -122,7 +280,7 @@ input[type=checkbox] {
   gap: 28px
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   letter-spacing: 1.7px;
   font-weight: 650;
   color: #036C7C
@@ -130,7 +288,7 @@ input[type=checkbox] {
 .sidebar-intro h1 {
   font-family: "Noe Display", "Times New Roman", serif;
   font-weight: 400;
-  font-size: 29px;
+  font-size: var(--font-size-29, 29px);
   line-height: 1.3;
   letter-spacing: -.8px;
   margin: 15px 0 12px
@@ -140,7 +298,7 @@ input[type=checkbox] {
   font-weight: 400
 }
 .sidebar-intro p {
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   line-height: 1.8;
   color: var(--muted);
   margin: 0
@@ -157,7 +315,7 @@ input[type=checkbox] {
   background: transparent;
   padding: 9px 13px;
   color: #31565F;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   border-radius: 4px;
   flex: 1;
   white-space: nowrap
@@ -172,7 +330,7 @@ input[type=checkbox] {
   margin-bottom: 17px
 }
 .source-tabs button {
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   padding: 9px 7px
 }
 .scene-list {
@@ -205,20 +363,20 @@ input[type=checkbox] {
 }
 .scene-card strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   font-weight: 600
 }
 .scene-card small {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   margin-top: 5px
 }
 .scene-card i {
   font-style: normal;
   margin-left: auto;
   color: #036C7C;
-  font-size: 14px;
+  font-size: var(--font-size-14, 14px);
   margin-right: 3px
 }
 .analysis-settings {
@@ -231,7 +389,7 @@ input[type=checkbox] {
 }
 .analysis-hint {
   color: #31565F;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   line-height: 1.6;
   margin: 10px 2px 18px
 }
@@ -243,24 +401,24 @@ input[type=checkbox] {
   gap: 6px
 }
 .setting-title h2 {
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   font-weight: 600;
   margin: 0
 }
 .setting-title>span {
-  font-size: 8px;
+  font-size: var(--font-size-8, 8px);
   letter-spacing: .5px;
   color: #31565F
 }
 .slider-label {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   color: #31565F
 }
 .slider-label strong {
   color: var(--brand-primary);
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   font-weight: 500
 }
 .wide-range {
@@ -272,11 +430,11 @@ input[type=checkbox] {
   display: flex;
   justify-content: space-between;
   color: #466970;
-  font-size: 9px
+  font-size: var(--font-size-9, 9px)
 }
 .select-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   color: #31565F;
   margin-top: 24px
 }
@@ -288,14 +446,14 @@ input[type=checkbox] {
   border-radius: 5px;
   padding: 11px;
   margin-top: 9px;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   color: var(--ink)
 }
 .refine-option {
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   margin-top: 20px
 }
 .refine-option input {
@@ -304,7 +462,7 @@ input[type=checkbox] {
 .refine-option small {
   display: block;
   color: #466970;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   margin-top: 5px
 }
 .analyze-button {
@@ -319,7 +477,7 @@ input[type=checkbox] {
   color: #fff;
   padding: 15px 16px;
   margin-top: 25px;
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   font-weight: 600;
   box-shadow: 0 4px 10px #00425424
 }
@@ -330,7 +488,7 @@ input[type=checkbox] {
   opacity: .7
 }
 .analyze-button>span:last-child {
-  font-size: 20px;
+  font-size: var(--font-size-20, 20px);
   font-weight: 400
 }
 .sidebar-foot {
@@ -343,12 +501,12 @@ input[type=checkbox] {
 }
 .sidebar-foot p {
   color: #466970;
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   line-height: 1.9;
   margin: 0
 }
 .tiny-mark {
-  font-size: 23px;
+  font-size: var(--font-size-23, 23px);
   color: #036C7C
 }
 .main-content {
@@ -364,7 +522,7 @@ input[type=checkbox] {
   justify-content: space-between
 }
 .edition {
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   color: #466970;
   letter-spacing: 1.1px
 }
@@ -383,7 +541,7 @@ input[type=checkbox] {
 .welcome>p {
   color: #31565F;
   max-width: 520px;
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   line-height: 1.9
 }
 .welcome-image {
@@ -417,12 +575,12 @@ input[type=checkbox] {
   align-items: center;
   gap: 8px;
   color: white;
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   font-weight: 500
 }
 .image-label small {
   margin-left: auto;
-  font-size: 8px;
+  font-size: var(--font-size-8, 8px);
   letter-spacing: 1.3px;
   color: #FFF7DA
 }
@@ -447,22 +605,22 @@ input[type=checkbox] {
   position: absolute;
   left: 0;
   top: 2px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: var(--brand-primary);
   font-family: monospace
 }
 .welcome-features strong {
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   font-weight: 600
 }
 .welcome-features p {
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   color: var(--muted);
   line-height: 1.8;
   margin: 8px 0 0
 }
 .welcome .welcome-note {
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   max-width: unset;
   color: var(--muted);
   margin-top: 20px
@@ -474,7 +632,7 @@ input[type=checkbox] {
   border-top: 1px solid var(--line);
   margin-top: 38px;
   padding-top: 17px;
-  font-size: 8px;
+  font-size: var(--font-size-8, 8px);
   color: #466970;
   letter-spacing: 1px
 }
@@ -489,7 +647,7 @@ input[type=checkbox] {
 }
 .result-heading h2 {
   font-family: "Noe Display", "Times New Roman", serif;
-  font-size: 34px;
+  font-size: var(--font-size-34, 34px);
   font-weight: 400;
   letter-spacing: -.8px;
   margin: 8px 0 0
@@ -502,7 +660,7 @@ input[type=checkbox] {
   border-radius: 30px;
   background: #E7F1F2;
   padding: 8px 12px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: #004254
 }
 .result-badge>span {
@@ -526,24 +684,24 @@ input[type=checkbox] {
 .stat-grid>div>span {
   display: block;
   color: #466970;
-  font-size: 10px
+  font-size: var(--font-size-10, 10px)
 }
 .stat-grid strong {
   display: block;
-  font-size: 28px;
+  font-size: var(--font-size-28, 28px);
   font-weight: 450;
   margin-top: 11px;
   letter-spacing: -1px
 }
 .stat-grid small {
-  font-size: 13px;
+  font-size: var(--font-size-13, 13px);
   letter-spacing: 0;
   color: #466970;
   font-weight: 400;
   margin-left: 4px
 }
 .stat-grid p {
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   color: #466970;
   margin-bottom: 0;
   line-height: 1.5
@@ -568,7 +726,7 @@ input[type=checkbox] {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: #466970
 }
 .zoom-label input {
@@ -624,7 +782,7 @@ input[type=checkbox] {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: #31565F
 }
 .legend-swatch {
@@ -663,7 +821,7 @@ input[type=checkbox] {
   justify-content: space-between;
   gap: 12px;
   padding: 9px 15px;
-  font-size: 8px;
+  font-size: var(--font-size-8, 8px);
   color: var(--muted)
 }
 .detail-grid {
@@ -683,12 +841,12 @@ input[type=checkbox] {
 .active-fire-summary>p {
   margin: 14px 0;
   color: #31565F;
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   line-height: 1.65
 }
 .active-fire-summary>ul {
   color: #625366;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   line-height: 1.6;
   padding-left: 18px;
   margin: 14px 0 0
@@ -707,12 +865,12 @@ input[type=checkbox] {
   align-items: baseline;
   border-top: 1px solid var(--line);
   padding: 8px 0;
-  font-size: 10px
+  font-size: var(--font-size-10, 10px)
 }
 .hotspot-row strong {
   grid-row: span 2;
   color: var(--brand-primary);
-  font-size: 10px
+  font-size: var(--font-size-10, 10px)
 }
 .hotspot-row span {
   color: #365F68
@@ -730,12 +888,12 @@ input[type=checkbox] {
   gap: 12px
 }
 .section-title h3 {
-  font-size: 13px;
+  font-size: var(--font-size-13, 13px);
   font-weight: 600;
   margin: 0
 }
 .section-title>span {
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: #466970;
   border: 1px solid var(--line);
   padding: 3px 7px;
@@ -763,18 +921,18 @@ input[type=checkbox] {
 .region-number {
   font-family: monospace;
   color: #036C7C;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   background: #E8F0F1;
   border-radius: 3px;
   padding: 6px
 }
 .region-row strong {
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   font-weight: 500;
   display: block
 }
 .region-row small {
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   color: #466970;
   display: block;
   margin-top: 4px
@@ -782,16 +940,16 @@ input[type=checkbox] {
 .region-row>span:last-child {
   margin-left: auto;
   color: #466970;
-  font-size: 10px
+  font-size: var(--font-size-10, 10px)
 }
 .export-panel h3 {
   font-family: "Noe Display", "Times New Roman", serif;
-  font-size: 23px;
+  font-size: var(--font-size-23, 23px);
   font-weight: 400;
   margin: 9px 0
 }
 .export-panel>p {
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   line-height: 1.8;
   color: #466970
 }
@@ -807,7 +965,7 @@ input[type=checkbox] {
   border: 1px solid #C6D3D5;
   border-radius: 4px;
   padding: 9px 10px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   background: #fff
 }
 .downloads a:hover {
@@ -817,7 +975,7 @@ input[type=checkbox] {
   color: var(--brand-primary)
 }
 .export-panel p.unit-note {
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   color: #466970;
   margin-top: 14px
 }
@@ -862,14 +1020,14 @@ input[type=checkbox] {
 }
 .step-card>span {
   display: block;
-  font-size: 8px;
+  font-size: var(--font-size-8, 8px);
   color: #036C7C;
   margin-top: 7px;
   font-family: monospace
 }
 .step-card strong {
   display: block;
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   line-height: 1.5;
   font-weight: 500;
   min-height: 28px;
@@ -891,14 +1049,14 @@ input[type=checkbox] {
   object-fit: contain
 }
 .step-detail p {
-  font-size: 11px;
+  font-size: var(--font-size-11, 11px);
   line-height: 1.9;
   color: #466970
 }
 .method-notes {
   margin-top: 20px;
   color: #466970;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   line-height: 1.8
 }
 .method-notes summary {
@@ -920,32 +1078,32 @@ input[type=checkbox] {
   background: #F7F9F9
 }
 .upload-field>span {
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   display: block
 }
 .upload-field>small {
   display: block;
   margin: 8px 0 11px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--font-size-9, 9px);
   overflow-wrap: anywhere
 }
 .upload-field input {
   width: 100%;
-  font-size: 10px
+  font-size: var(--font-size-10, 10px)
 }
 .upload-field input::file-selector-button {
   background: #E8E8E8;
   border: 0;
   border-radius: 3px;
   padding: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   color: #004254;
   margin-right: 7px
 }
 .muted {
   color: #466970;
-  font-size: 10px;
+  font-size: var(--font-size-10, 10px);
   line-height: 1.8
 }
 .error-banner,.progress-banner {
@@ -954,7 +1112,7 @@ input[type=checkbox] {
   color: #9d4e2a;
   padding: 13px 16px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-12, 12px);
   line-height: 1.7;
   margin-bottom: 20px
 }
@@ -981,7 +1139,7 @@ input[type=checkbox] {
   place-items: center;
   height: 100%;
   font-family: "Noe Display", "Times New Roman", serif;
-  font-size: 30px;
+  font-size: var(--font-size-30, 30px);
   color: #036C7C
 }
 @keyframes spin {
@@ -1012,7 +1170,7 @@ input[type=checkbox] {
     padding: 17px 12px
   }
   .stat-grid strong {
-    font-size: 23px
+    font-size: var(--font-size-23, 23px)
   }
   .detail-grid {
     grid-template-columns: 1fr
@@ -1028,10 +1186,10 @@ input[type=checkbox] {
     margin: 0
   }
   .topbar-title {
-    font-size: 8px
+    font-size: var(--font-size-8, 8px)
   }
   .result-badge {
-    font-size: 9px
+    font-size: var(--font-size-9, 9px)
   }
 }
 @media(max-width:760px) {
@@ -1046,7 +1204,7 @@ input[type=checkbox] {
     display: none
   }
   .brand {
-    font-size: 30px
+    font-size: var(--font-size-30, 30px)
   }
   .sidebar {
     border-right: 0;
@@ -1055,7 +1213,7 @@ input[type=checkbox] {
     gap: 20px
   }
   .sidebar-intro h1 {
-    font-size: 27px
+    font-size: var(--font-size-27, 27px)
   }
   .sidebar-intro h1 br {
     display: none
@@ -1079,11 +1237,11 @@ input[type=checkbox] {
     height: 65px
   }
   .scene-card strong {
-    font-size: 10px;
+    font-size: var(--font-size-10, 10px);
     margin-top: 8px
   }
   .scene-card small {
-    font-size: 8px;
+    font-size: var(--font-size-8, 8px);
     margin-bottom: 5px
   }
   .scene-card i {
@@ -1106,7 +1264,7 @@ input[type=checkbox] {
     padding: 25px 18px 20px
   }
   .welcome h2 {
-    font-size: 39px
+    font-size: var(--font-size-39, 39px)
   }
   .welcome-image {
     aspect-ratio: 1.6
@@ -1123,17 +1281,17 @@ input[type=checkbox] {
     margin-bottom: 8px
   }
   .welcome-features p {
-    font-size: 10px
+    font-size: var(--font-size-10, 10px)
   }
   .welcome-features strong {
-    font-size: 11px
+    font-size: var(--font-size-11, 11px)
   }
   .result-heading {
     align-items: flex-start;
     flex-direction: column
   }
   .result-heading h2 {
-    font-size: 30px
+    font-size: var(--font-size-30, 30px)
   }
   .stat-grid {
     grid-template-columns: repeat(2,1fr);
@@ -1165,7 +1323,7 @@ input[type=checkbox] {
     margin-left: 0
   }
   .viewer-caption {
-    font-size: 8px;
+    font-size: var(--font-size-8, 8px);
     flex-direction: column;
     gap: 3px
   }
@@ -1175,17 +1333,17 @@ input[type=checkbox] {
     right: 15px
   }
   .main-footer {
-    font-size: 7px;
+    font-size: var(--font-size-7, 7px);
     letter-spacing: .4px
   }
   .export-panel h3 {
-    font-size: 23px
+    font-size: var(--font-size-23, 23px)
   }
   .welcome-top .eyebrow {
-    font-size: 8px
+    font-size: var(--font-size-8, 8px)
   }
   .edition {
-    font-size: 8px
+    font-size: var(--font-size-8, 8px)
   }
   .step-list {
     grid-template-columns: repeat(7,95px)
@@ -1210,12 +1368,12 @@ input[type=checkbox] {
   }
 }
 .quality-panel { margin-top: 24px; }
-.quality-panel > p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.quality-panel > p { color: var(--muted); font-size: var(--font-size-12, 12px); line-height: 1.6; }
 .quality-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 18px; }
 .quality-check { border-left: 3px solid #036C7C; padding: 3px 12px; }
 .quality-check.review { border-color: #FFBB21; }
-.quality-check strong { font-size: 12px; }
-.quality-check p { font-size: 11px; line-height: 1.6; color: var(--muted); margin-bottom: 0; }
+.quality-check strong { font-size: var(--font-size-12, 12px); }
+.quality-check p { font-size: var(--font-size-11, 11px); line-height: 1.6; color: var(--muted); margin-bottom: 0; }
 .select-label input[type=number] { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; color: inherit; margin-top: 8px; }
 
 .skip-link {
@@ -1308,7 +1466,7 @@ input[type=checkbox] {
 .step-card strong,
 .step-detail p,
 .unit-note {
-  font-size: max(12px, 0.75rem)
+  font-size: var(--font-small, max(12px, 0.75rem))
 }
 .segmented button {
   min-height: 40px
@@ -1339,7 +1497,228 @@ input[type="checkbox"] {
   color: var(--muted)
 }
 @media(max-width:760px) {
+  .topbar-actions {
+    gap: 0
+  }
+  .topbar-actions .connection {
+    display: none
+  }
+  .accessibility-popover {
+    right: -4px;
+    padding: 18px
+  }
   .main-footer {
     flex-wrap: wrap
+  }
+}
+.app-shell.theme-dark {
+  --ink: #EDF5F6;
+  --muted: #B7CDD1;
+  --brand-primary: #78D0D9;
+  --brand-secondary: #65C1CC;
+  --line: #49646A;
+  --sidebar: #182A30;
+  color: #EDF5F6;
+  background: #101C20
+}
+.app-shell.theme-dark .topbar,
+.app-shell.theme-dark .sidebar,
+.app-shell.theme-dark .panel,
+.app-shell.theme-dark .viewer-card,
+.app-shell.theme-dark .stat-grid > div,
+.app-shell.theme-dark .stat-grid,
+.app-shell.theme-dark .scene-card,
+.app-shell.theme-dark .segmented button.active,
+.app-shell.theme-dark .accessibility-popover,
+.app-shell.theme-dark .downloads a,
+.app-shell.theme-dark .step-card {
+  background-color: #182A30;
+  color: #EDF5F6;
+  border-color: var(--line)
+}
+.app-shell.theme-dark .segmented {
+  background: #243940
+}
+.app-shell.theme-dark .scene-card.selected {
+  background: #213A41;
+  border-color: #65C1CC
+}
+.app-shell.theme-dark .step-card.selected {
+  background: #213A41;
+  border-color: #65C1CC
+}
+.app-shell.theme-dark .step-detail {
+  background: #1C3238
+}
+.app-shell.theme-dark .region-row:hover,
+.app-shell.theme-dark .region-row.selected {
+  background: #243C43
+}
+.app-shell.theme-dark .region-number {
+  background: #243C43;
+  color: #78D0D9
+}
+.app-shell.theme-dark .result-badge {
+  background: #20363D;
+  color: #EDF5F6;
+  border-color: var(--line)
+}
+.app-shell.theme-dark .layer-toolbar {
+  border-color: var(--line)
+}
+.app-shell.theme-dark .active-fire-summary {
+  background: #403719;
+  color: #FFF4CD
+}
+.app-shell.theme-dark .active-fire-summary > p,
+.app-shell.theme-dark .active-fire-summary > ul {
+  color: #F4E8BA
+}
+.app-shell.theme-dark .topbar-title,
+.app-shell.theme-dark .eyebrow,
+.app-shell.theme-dark .edition,
+.app-shell.theme-dark .scene-card small,
+.app-shell.theme-dark .welcome > p,
+.app-shell.theme-dark .sidebar-foot p,
+.app-shell.theme-dark .setting-title > span,
+.app-shell.theme-dark .slider-label,
+.app-shell.theme-dark .range-labels,
+.app-shell.theme-dark .analysis-hint,
+.app-shell.theme-dark .select-label,
+.app-shell.theme-dark .refine-option,
+.app-shell.theme-dark .refine-option small,
+.app-shell.theme-dark .method-notes,
+.app-shell.theme-dark .unit-note,
+.app-shell.theme-dark .accessibility-setting .setting-hint {
+  color: var(--muted)
+}
+.app-shell.theme-dark .eyebrow {
+  color: #78D0D9
+}
+.app-shell.theme-dark .select-label select,
+.app-shell.theme-dark .select-label input,
+.app-shell.theme-dark .accessibility-setting select,
+.app-shell.theme-dark .upload-field,
+.app-shell.theme-dark .step-card,
+.app-shell.theme-dark .step-detail,
+.app-shell.theme-dark input[type="number"] {
+  background: #20363D;
+  color: #EDF5F6;
+  border-color: var(--line)
+}
+.app-shell.theme-dark .accessibility-trigger,
+.app-shell.theme-dark .accessibility-close {
+  background: #182A30;
+  color: #EDF5F6;
+  border-color: var(--line)
+}
+.app-shell.theme-dark .accessibility-trigger:hover,
+.app-shell.theme-dark .accessibility-close:hover {
+  background: #29444B
+}
+.app-shell.theme-dark .analyze-button {
+  background: #036C7C;
+  color: #FFFFFF
+}
+.app-shell.theme-dark .image-scroll {
+  background: #0B1417
+}
+.app-shell.theme-dark .error-banner {
+  background: #512C2C;
+  color: #FFE5E1
+}
+.app-shell.theme-dark .progress-banner {
+  background: #20363D;
+  color: #EDF5F6;
+  border-color: var(--line)
+}
+.app-shell.theme-dark .downloads a:hover {
+  border-color: #78D0D9
+}
+.app-shell.theme-dark .step-card > span {
+  color: #78D0D9
+}
+.app-shell.theme-dark .step-detail p,
+.app-shell.theme-dark .hotspot-row span,
+.app-shell.theme-dark .section-title > span,
+.app-shell.theme-dark .region-row small,
+.app-shell.theme-dark .region-row > span:last-child,
+.app-shell.theme-dark .export-panel > p,
+.app-shell.theme-dark .muted,
+.app-shell.theme-dark .main-footer {
+  color: var(--muted)
+}
+.app-shell.font-arial,
+.app-shell.font-arial * {
+  font-family: Arial, sans-serif !important
+}
+.app-shell.font-verdana,
+.app-shell.font-verdana * {
+  font-family: Verdana, sans-serif !important
+}
+.app-shell.font-georgia,
+.app-shell.font-georgia * {
+  font-family: Georgia, serif !important
+}
+.app-shell .sidebar-intro h1 {
+  font-size: var(--font-sidebar-heading, 29px)
+}
+.app-shell .welcome h2 {
+  font-size: var(--font-welcome-heading, clamp(34px, 3.7vw, 58px))
+}
+.app-shell .result-heading h2 {
+  font-size: var(--font-result-heading, 34px)
+}
+.app-shell .section-title h3 {
+  font-size: var(--font-section-heading, 13px)
+}
+.app-shell .sidebar-intro p,
+.app-shell .welcome > p {
+  font-size: var(--font-body, 12px)
+}
+@media(max-width:760px) {
+  .app-shell .sidebar-intro h1 {
+    font-size: var(--font-sidebar-heading-mobile, 27px)
+  }
+  .app-shell .welcome h2 {
+    font-size: var(--font-welcome-heading-mobile, 39px)
+  }
+  .app-shell .result-heading h2 {
+    font-size: var(--font-result-heading-mobile, 30px)
+  }
+}
+.app-shell.theme-dark .sidebar-intro h1 em,
+.app-shell.theme-dark .welcome h2 em {
+  color: #78D0D9
+}
+.app-shell.theme-dark .stat-grid > div > span,
+.app-shell.theme-dark .stat-grid p,
+.app-shell.theme-dark .layer-toolbar label {
+  color: var(--muted)
+}
+.app-shell.theme-dark .upload-field input::file-selector-button {
+  background: #29444B;
+  color: #EDF5F6
+}
+.app-shell.theme-dark .step-detail p,
+.app-shell.theme-dark .hotspot-row span,
+.app-shell.theme-dark .section-title > span,
+.app-shell.theme-dark .region-row > span:last-child,
+.app-shell.theme-dark .export-panel > p,
+.app-shell.theme-dark .muted {
+  color: var(--muted)
+}
+.app-shell.theme-dark .tiny-mark {
+  color: #78D0D9
+}
+@media(max-width:760px) {
+  .app-shell .sidebar-intro h1 {
+    font-size: var(--font-sidebar-heading-mobile, 27px)
+  }
+  .app-shell .welcome h2 {
+    font-size: var(--font-welcome-heading-mobile, 39px)
+  }
+  .app-shell .result-heading h2 {
+    font-size: var(--font-result-heading-mobile, 30px)
   }
 }
