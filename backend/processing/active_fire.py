@@ -4,6 +4,9 @@ Rule adapted from Mitra et al. (arXiv:2609.16199v1, Eqs. 2-4). The paper
 applies its thresholds to converted Level-2A reflectance before rendering;
 here the inverse of its published fixed rendering is only an approximation
 because the app receives quantized, lossy JPEG composites.
+
+Contextual support is checked at several neighborhood sizes. Component scores
+are heuristic evidence summaries, not calibrated probabilities.
 """
 
 from dataclasses import asdict, dataclass
@@ -24,6 +27,7 @@ class ActiveFireConfig:
     min_component_pixels: int = 2
     contextual_filter: bool = True
     context_radius_fraction: float = 0.015
+    context_scale_factors: tuple = (0.5, 1.0, 2.0)
     min_red_excess: float = 0.08
     min_context_z: float = 1.5
 
@@ -36,6 +40,10 @@ class ActiveFireConfig:
             raise ValueError("El crecimiento y el tamaño mínimo activos están fuera de rango.")
         if not .002 <= self.context_radius_fraction <= .10 or not 0 <= self.min_red_excess <= 1 or not 0 <= self.min_context_z <= 10:
             raise ValueError("Los parámetros de contexto activo están fuera de rango.")
+        scales = tuple(self.context_scale_factors)
+        if (not scales or any(not np.isfinite(scale) or scale <= 0 for scale in scales)
+                or tuple(sorted(set(scales))) != scales):
+            raise ValueError("Las escalas de contexto deben ser positivas, únicas y crecientes.")
 
     def to_dict(self):
         return asdict(self)
@@ -61,9 +69,9 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
         if uncertain.shape != (height, width):
             raise ValueError("La incertidumbre debe compartir la cuadrícula SWIR.")
 
-    rgb = swir_rgb.astype(np.float32)
-    rho12 = (rgb[:, :, 0] / 255.0) * config.b12_render_max
-    rho8a = (rgb[:, :, 2] / 255.0) * config.b8a_render_max
+    red = swir_rgb[:, :, 0].astype(np.float32) / 255.0
+    rho12 = red * config.b12_render_max
+    rho8a = (swir_rgb[:, :, 2].astype(np.float32) / 255.0) * config.b8a_render_max
     ratio = np.divide(rho12, rho8a, out=np.full_like(rho12, np.inf), where=rho8a > 1e-6)
     valid = np.all(swir_rgb > 3, axis=2) & ~uncertain
 
@@ -71,19 +79,31 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
     candidates = valid & (rho12 >= config.b12_candidate) & (ratio >= config.ratio_candidate)
     seeds = raw_seeds.copy()
     context_support = raw_seeds.copy()
+    context_votes = np.zeros((height, width), dtype=np.uint8)
+    context_radii = []
+    scale_support_pixels = []
     if config.contextual_filter:
-        red = rgb[:, :, 0] / 255.0
         background = (valid & ~raw_seeds).astype(np.float32)
-        radius = max(5, round(max(height, width) * config.context_radius_fraction))
-        kernel_size = (2 * radius + 1,) * 2
-        count = cv2.boxFilter(background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT)
-        mean = cv2.boxFilter(red * background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT) / np.maximum(count, 1)
-        variance = cv2.boxFilter(red * red * background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT) / np.maximum(count, 1) - mean * mean
-        excess = red - mean
-        z = excess / np.sqrt(np.maximum(variance, 0) + .015 ** 2)
-        context_support = raw_seeds & (excess >= config.min_red_excess) & (z >= config.min_context_z) & (count >= kernel_size[0] ** 2 * .25)
+        context_radii = sorted({
+            max(1, round(max(height, width) * config.context_radius_fraction * scale))
+            for scale in config.context_scale_factors
+        })
+        context_support = np.zeros((height, width), dtype=bool)
+        for radius in context_radii:
+            kernel_size = (2 * radius + 1,) * 2
+            count = cv2.boxFilter(background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT)
+            mean = cv2.boxFilter(red * background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT) / np.maximum(count, 1)
+            variance = cv2.boxFilter(red * red * background, -1, kernel_size, normalize=False, borderType=cv2.BORDER_CONSTANT) / np.maximum(count, 1) - mean * mean
+            excess = red - mean
+            z = excess / np.sqrt(np.maximum(variance, 0) + .015 ** 2)
+            enough_background = count >= kernel_size[0] ** 2 * .25
+            scale_support = raw_seeds & (excess >= config.min_red_excess) & (z >= config.min_context_z) & enough_background
+            context_support |= scale_support
+            context_votes += scale_support.astype(np.uint8)
+            scale_support_pixels.append(int(scale_support.sum()))
         # Keep an entire seed component if it has local anomalous support;
-        # this preserves broad hot cores and tiny point targets alike.
+        # support at any neighborhood size is sufficient. This preserves
+        # small targets while allowing broad fronts to use wider context.
         n, seed_labels = cv2.connectedComponents(raw_seeds.astype(np.uint8), connectivity=8)
         supported = np.bincount(seed_labels[context_support], minlength=n) > 0
         supported[0] = False
@@ -104,11 +124,45 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
     keep[0] = False
     mask = keep[component_labels]
 
-    # A display-only strength image: 1.0 marks both seed conditions. It is
-    # not a calibrated probability and is not used in place of the rule.
+    # A display-only spectral strength image. It is not a calibrated
+    # probability and is not used in place of the rule.
     score = np.minimum(rho12 / config.b12_seed, ratio / config.ratio_seed)
     score = np.clip(score, 0, 1).astype(np.float32)
     score[~valid] = 0
+
+    # Summarize each component's spectral margin and multi-scale context
+    # support over its seeds. The result is a heuristic ranking, not a
+    # probability. With the contextual filter disabled, omit these values.
+    if config.contextual_filter:
+        seed_spectral_margin = np.minimum(
+            np.clip((rho12[seeds] - config.b12_seed) / max(config.b12_render_max - config.b12_seed, 1e-6), 0, 1),
+            np.clip(ratio[seeds] / config.ratio_seed - 1.0, 0, 1),
+        )
+        seed_context_consistency = context_votes[seeds].astype(np.float32) / max(len(context_radii), 1)
+        seed_confidence = 0.5 * seed_spectral_margin + 0.5 * seed_context_consistency
+        confidence_sum = np.bincount(
+            component_labels[seeds], weights=seed_confidence, minlength=component_count
+        )
+        confidence_by_component = np.divide(
+            confidence_sum, seed_counts, out=np.zeros_like(confidence_sum), where=seed_counts > 0
+        )
+        context_supported_seed_count = np.bincount(
+            component_labels[seeds], weights=(context_votes[seeds] > 0).astype(np.float32),
+            minlength=component_count
+        )
+        context_support_by_component = np.divide(
+            context_supported_seed_count, seed_counts,
+            out=np.zeros_like(context_supported_seed_count), where=seed_counts > 0
+        )
+        context_consistency_sum = np.bincount(
+            component_labels[seeds], weights=seed_context_consistency, minlength=component_count
+        )
+        context_scale_support_by_component = np.divide(
+            context_consistency_sum, seed_counts,
+            out=np.zeros_like(context_consistency_sum), where=seed_counts > 0
+        )
+    else:
+        confidence_by_component = None
 
     original_width, original_height = original_size or (width, height)
     sx, sy = original_width / width, original_height / height
@@ -137,6 +191,12 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
             "peak_red": round(float(peak_b12[label]) / config.b12_render_max, 4),
             "peak_red_blue_ratio": round(float(peak_ratio[label]) * config.b8a_render_max / config.b12_render_max, 3),
         })
+        if confidence_by_component is not None:
+            hotspots[-1].update({
+                "confidence_score": round(float(confidence_by_component[label]), 3),
+                "context_support_fraction": round(float(context_support_by_component[label]), 3),
+                "context_scale_support": round(float(context_scale_support_by_component[label]), 3),
+            })
     hotspots.sort(key=lambda item: (item["seed_pixels"], item["area_analysis_pixels"]), reverse=True)
     for index, hotspot in enumerate(hotspots, 1):
         hotspot["id"] = index
@@ -162,11 +222,14 @@ def detect_active_fire(swir_rgb, uncertain=None, original_size=None, config=None
             "active_pixels": active_pixels,
             "active_percent": round(100 * active_pixels / mask.size, 4),
             "hotspot_count": len(hotspots),
+            "context_radii_pixels": context_radii,
+            "context_support_pixels_by_scale": scale_support_pixels,
         },
         "warnings": [
             "Umbrales aproximados del SWIR-rule del paper; su referencia usa reflectancias antes del render, aquí se invierten los límites publicados sobre un JPEG cuantizado y con pérdida.",
             "La regla usa brillo y contraste R/B del render; el JPEG no permite verificar el orden de bandas ni recuperar reflectancias. Las equivalencias B12/B8A son solo la hipótesis de render del paper.",
-            "El filtro contextual exige brillo anómalo respecto al fondo local; reduce candidatos uniformes, pero puede omitir frentes débiles o muy extensos.",
+            "El filtro contextual comprueba contraste con el fondo en varias escalas y acepta soporte en cualquiera de ellas. Puede reducir candidatos uniformes, aunque sigue pudiendo omitir frentes débiles o extensos.",
+            "confidence_score y context_scale_support son puntuaciones heurísticas del componente, no probabilidades calibradas.",
             "Los puntos son candidatos compatibles con fuego activo, no temperatura medida ni confirmación de incendio.",
         ],
     }

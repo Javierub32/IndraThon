@@ -166,7 +166,7 @@ def save_analysis(swir, visible, original_size, options, scene_name):
             "fire_grown", "fire_score", "active_labels", "hotspots", "fire_context", "fire_raw_seeds",
         }
         metadata.update({"result_id": result_id, "scene_name": scene_name,
-                         "algorithm": "colour-hysteresis+rgb-context-v2" if fire is not None else "colour-hysteresis-v2",
+                         "algorithm": "colour-hysteresis+multiscale-fire-context-v3" if fire is not None else "colour-hysteresis-v2",
                          "assets": assets,
                          "active_fire": {
                              "enabled": fire is not None,
