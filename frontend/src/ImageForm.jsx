@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import indraLogo from './assets/indra-group.jpg';
 const ACCESSIBILITY_STORAGE_KEY = 'brasa.accessibility';
 const DEFAULT_ACCESSIBILITY = {
   fontSize: 100,
   fontFamily: 'indra',
   theme: 'light'
 };
-const ACCESSIBLE_FONTS = ['indra', 'arial', 'verdana', 'georgia'];
+const ACCESSIBLE_FONTS = ['indra', 'arial', 'verdana', 'georgia', 'opendyslexic'];
 const number = value => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 1
 }).format(value);
@@ -374,8 +375,8 @@ export default function ImageForm() {
   return <div className={`app-shell ${accessibilityClasses}`} style={accessibilityStyles}>
     <a className="skip-link" href="#main-content">Saltar al contenido principal</a>
     <header className="topbar">
-<a className="brand" href="/" aria-label="Brasa, inicio">
-<span className="brand-mark">◒</span>brasa<span className="brand-dot">.</span>
+<a className="brand" href="/" aria-label="Indra Group, inicio">
+<img className="brand-mark" src={indraLogo} alt="Indra Group" />
 </a>
 <div className="topbar-title">INDRA ESPACIO <span>/</span> OBSERVACIÓN SATELITAL</div>
 <div className="topbar-actions">
