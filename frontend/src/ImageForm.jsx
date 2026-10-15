@@ -5,7 +5,7 @@ const DEFAULT_ACCESSIBILITY = {
   fontFamily: 'indra',
   theme: 'light'
 };
-const ACCESSIBLE_FONTS = ['indra', 'arial', 'verdana', 'georgia'];
+const ACCESSIBLE_FONTS = ['indra', 'arial', 'verdana', 'georgia', 'opendyslexic'];
 const number = value => new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 1
 }).format(value);
@@ -399,6 +399,7 @@ export default function ImageForm() {
 <option value="arial">Arial</option>
 <option value="verdana">Verdana</option>
 <option value="georgia">Georgia</option>
+<option value="opendyslexic">OpenDyslexic · lectura accesible</option>
 </select>
 </label>
 <div className="accessibility-setting theme-setting">

@@ -1,4 +1,11 @@
 @import "tailwindcss" ;
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("/fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 :root {
   font-family: "Neo Sans", Arial, sans-serif;
   color: #004254;
@@ -331,7 +338,12 @@ input[type=checkbox] {
 }
 .source-tabs button {
   font-size: var(--font-size-10, 10px);
-  padding: 9px 7px
+  padding: 9px 4px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.35
 }
 .scene-list {
   display: grid;
@@ -1659,6 +1671,10 @@ input[type="checkbox"] {
 .app-shell.font-georgia,
 .app-shell.font-georgia * {
   font-family: Georgia, serif !important
+}
+.app-shell.font-opendyslexic,
+.app-shell.font-opendyslexic * {
+  font-family: "OpenDyslexic", sans-serif !important
 }
 .app-shell .sidebar-intro h1 {
   font-size: var(--font-sidebar-heading, 29px)
